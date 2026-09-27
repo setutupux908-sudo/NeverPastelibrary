@@ -4597,7 +4597,7 @@ function Tab:AddEspPreview(options)
 	local section = self:AddSection({ Name = options.Name or "ESP Preview", Side = options.Side or "Middle" })
 	local theme = self.window.library.theme
 	local display = create("Frame", {
-		Size = UDim2.new(1, 0, 0, options.Height or 300),
+		Size = UDim2.new(1, 0, 0, options.Height or 250),
 		BackgroundColor3 = theme.bg,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
@@ -4618,8 +4618,8 @@ function Tab:AddEspPreview(options)
 	viewport.CurrentCamera = camera
 
 	local box = create("Frame", {
-		Position = UDim2.new(0.06, 0, 0.175, 0),
-		Size = UDim2.new(0.88, 0, 0.65, 0),
+		Position = UDim2.new(0.125, 0, 0.16, 0),
+		Size = UDim2.new(0.75, 0, 0.68, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, display)
