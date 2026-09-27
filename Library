@@ -1,4 +1,3 @@
-
 local cloneref = assert(type(cloneref) == "function" and cloneref, "missing cloneref")
 local gethui = assert(type(gethui) == "function" and gethui, "missing gethui")
 
@@ -4484,7 +4483,7 @@ function Tab:AddContextSelector(options)
 		for item, row in pairs(self.Buttons) do
 			local selected = item == name
 			row.Button.BackgroundTransparency = selected and 0.1 or 1
-			row.Button.TextColor3 = selected and self.Theme.text or self.Theme.text_soft
+			row.Label.TextColor3 = selected and self.Theme.text or self.Theme.text_soft
 			row.Accent.Visible = selected
 		end
 		if options.OnChanged then options.OnChanged(name) end
@@ -4499,22 +4498,27 @@ function Tab:AddContextSelector(options)
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			AutoButtonColor = false,
-			Font = Enum.Font.GothamSemibold,
-			Text = name,
-			TextSize = 11,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextColor3 = selector.Theme.text_soft,
+			Text = "",
 		}, holder)
 		local accent = create("Frame", {
-			Position = UDim2.fromOffset(0, 4),
+			Position = UDim2.fromOffset(2, 4),
 			Size = UDim2.fromOffset(2, 16),
 			BackgroundColor3 = selector.Theme.accent,
 			BorderSizePixel = 0,
 			Visible = false,
 		}, button)
-		create("UIPadding", { PaddingLeft = UDim.new(0, 7) }, button)
+		local label = create("TextLabel", {
+			Position = UDim2.fromOffset(12, 0),
+			Size = UDim2.new(1, -14, 1, 0),
+			BackgroundTransparency = 1,
+			Font = Enum.Font.GothamSemibold,
+			Text = name,
+			TextSize = 11,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = selector.Theme.text_soft,
+		}, button)
 		round_ui(button, 2)
-		selector.Buttons[name] = { Button = button, Accent = accent }
+		selector.Buttons[name] = { Button = button, Accent = accent, Label = label }
 		connect(self.window.connections, button.MouseButton1Click, function() selector:Select(name) end)
 	end
 	selector:Select(options.Default or (options.Items and options.Items[1]))
@@ -4650,8 +4654,8 @@ function Tab:AddEspPreview(options)
 		BorderSizePixel = 1,
 	}, box)
 	local health = create("Frame", {
-		Position = UDim2.fromScale(0, 0.28),
-		Size = UDim2.fromScale(1, 0.72),
+		Position = UDim2.fromScale(0, 1),
+		Size = UDim2.fromScale(1, 0),
 		BackgroundColor3 = rgb(0, 255, 42),
 		BorderSizePixel = 0,
 	}, healthBack)
@@ -4677,20 +4681,18 @@ function Tab:AddEspPreview(options)
 	local skeleton = create("Frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
-	}, box)
+		ZIndex = 7,
+	}, display)
 	local joints = {}
-	for _, segment in ipairs({
-		{ 0.5, 0.16, 0.5, 0.45 }, { 0.5, 0.45, 0.5, 0.64 },
-		{ 0.5, 0.29, 0.2, 0.53 }, { 0.5, 0.29, 0.8, 0.53 },
-		{ 0.5, 0.64, 0.3, 0.95 }, { 0.5, 0.64, 0.7, 0.95 },
-	}) do
+	for _ = 1, 14 do
 		local line = create("Frame", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundColor3 = Color3.new(1, 1, 1),
 			BorderSizePixel = 0,
 			Visible = false,
+			ZIndex = 8,
 		}, skeleton)
-		insert(joints, { Frame = line, Points = segment })
+		insert(joints, line)
 	end
 	local preview = setmetatable({
 		Section = section, Display = display, World = world, Camera = camera,
@@ -4698,28 +4700,45 @@ function Tab:AddEspPreview(options)
 		Fill = fill, FillGradient = fillGradient, Glow = glow,
 		HealthBack = healthBack, Health = health, HealthGradient = healthGradient,
 		Name = name, Weapon = weapon, Distance = distance,
-		Skeleton = joints,
+		Skeleton = joints, SkeletonLayer = skeleton,
+		ModelDistance = options.ModelDistance or 1.6,
+		HealthValue = 0, HealthDirection = 1,
 	}, EspPreview)
-	local function updateSkeleton()
-		local size = skeleton.AbsoluteSize
-		for _, joint in ipairs(joints) do
-			local points = joint.Points
-			local dx = (points[3] - points[1]) * size.X
-			local dy = (points[4] - points[2]) * size.Y
-			joint.Frame.Position = UDim2.fromOffset((points[1] + points[3]) * size.X * 0.5, (points[2] + points[4]) * size.Y * 0.5)
-			joint.Frame.Size = UDim2.fromOffset(math.sqrt(dx * dx + dy * dy), 1)
-			joint.Frame.Rotation = math.deg(math.atan2(dy, dx))
-		end
-	end
-	connect(self.window.connections, skeleton:GetPropertyChangedSignal("AbsoluteSize"), updateSkeleton)
+	connect(self.window.connections, display:GetPropertyChangedSignal("AbsoluteSize"), function()
+		preview:UpdateSkeleton()
+	end)
 	connect(self.window.connections, run.RenderStepped, function(dt)
 		local config = preview.Config
-		if self.window.selected == self and self.window.gui.Enabled
-			and config and config.BoxFill and config.BoxFillSpin then
+		if self.window.selected ~= self or not self.window.root.Visible
+			or not section.holder.Visible or not config then return end
+		if config.BoxFill and config.BoxFillSpin then
 			fillGradient.Rotation = (fillGradient.Rotation + dt * 90) % 360
 		end
+		local nextHealth = preview.HealthValue + dt * 40 * preview.HealthDirection
+		if nextHealth >= 100 then
+			nextHealth = 100
+			preview.HealthDirection = -1
+		elseif nextHealth <= 0 then
+			nextHealth = 0
+			preview.HealthDirection = 1
+		end
+		preview.HealthValue = nextHealth
+		local ratio = nextHealth / 100
+		health.Size = UDim2.fromScale(1, ratio)
+		health.Position = UDim2.fromScale(0, 1 - ratio)
+		if config.HealthBarType == "Dynamic" then
+			health.BackgroundColor3 = config.HealthLowColor:Lerp(config.HealthFullColor, ratio)
+		end
 	end)
-	updateSkeleton()
+	section:AddSlider({
+		Name = "Model distance",
+		Flag = "esp_preview_model_distance",
+		Min = 1.2,
+		Max = 3,
+		Step = 0.05,
+		Default = preview.ModelDistance,
+		Callback = function(value) preview:SetModelDistance(value) end,
+	})
 	preview:SetConfig(options.Config)
 	return preview
 end
@@ -4727,7 +4746,10 @@ end
 function EspPreview:SetModel(source)
 	if self.Model then self.Model:Destroy() end
 	self.Model = nil
-	if not source then return end
+	if not source then
+		self:UpdateSkeleton()
+		return
+	end
 	local archivable = source.Archivable
 	source.Archivable = true
 	local model = source:Clone()
@@ -4749,15 +4771,68 @@ function EspPreview:SetModel(source)
 	model.Parent = self.World
 	self.Model = model
 	local bounds, size = model:GetBoundingBox()
-	local target = bounds.Position
-	local distance = math.max(size.Y * 0.5 / math.tan(math.rad(self.Camera.FieldOfView) * 0.5) * 1.35, 4)
-	self.Camera.CFrame = CFrame.lookAt(target + Vector3.new(-distance, 0, 0), target)
+	self.CameraTarget = bounds.Position
+	self.BaseDistance = math.max(size.Y * 0.5 / math.tan(math.rad(self.Camera.FieldOfView) * 0.5), 4)
+	self:SetModelDistance(self.ModelDistance)
+end
+
+function EspPreview:SetModelDistance(value)
+	self.ModelDistance = value
+	if not self.Model then return end
+	local target = self.CameraTarget
+	self.Camera.CFrame = CFrame.lookAt(target + Vector3.new(-self.BaseDistance * value, 0, 0), target)
+	self:UpdateSkeleton()
+end
+
+function EspPreview:UpdateSkeleton()
+	local model = self.Model
+	local config = self.Config
+	local size = self.Display.AbsoluteSize
+	local joints = model and model:FindFirstChild("UpperTorso") and {
+		{ "Head", "UpperTorso" }, { "UpperTorso", "LowerTorso" },
+		{ "UpperTorso", "LeftUpperArm" }, { "LeftUpperArm", "LeftLowerArm" },
+		{ "LeftLowerArm", "LeftHand" }, { "UpperTorso", "RightUpperArm" },
+		{ "RightUpperArm", "RightLowerArm" }, { "RightLowerArm", "RightHand" },
+		{ "LowerTorso", "LeftUpperLeg" }, { "LeftUpperLeg", "LeftLowerLeg" },
+		{ "LeftLowerLeg", "LeftFoot" }, { "LowerTorso", "RightUpperLeg" },
+		{ "RightUpperLeg", "RightLowerLeg" }, { "RightLowerLeg", "RightFoot" },
+	} or {
+		{ "Head", "Torso" }, { "Torso", "Left Arm" },
+		{ "Torso", "Right Arm" }, { "Torso", "Left Leg" },
+		{ "Torso", "Right Leg" },
+	}
+	local focal = size.Y / (2 * math.tan(math.rad(self.Camera.FieldOfView) * 0.5))
+	local function project(part)
+		if not part or not part:IsA("BasePart") then return nil end
+		local relative = self.Camera.CFrame:PointToObjectSpace(part.Position)
+		local depth = -relative.Z
+		if depth <= 0 then return nil end
+		return Vector2.new(size.X * 0.5 + relative.X * focal / depth,
+			size.Y * 0.5 - relative.Y * focal / depth)
+	end
+	for index, line in ipairs(self.Skeleton) do
+		local pair = joints[index]
+		local first = pair and model and project(model:FindFirstChild(pair[1]))
+		local second = pair and model and project(model:FindFirstChild(pair[2]))
+		local visible = config and config.Skeleton and size.X > 0 and size.Y > 0 and first and second
+		line.Visible = visible and true or false
+		if visible then
+			local delta = second - first
+			line.Position = UDim2.fromOffset((first.X + second.X) * 0.5, (first.Y + second.Y) * 0.5)
+			line.Size = UDim2.fromOffset(delta.Magnitude, 2)
+			line.Rotation = math.deg(math.atan2(delta.Y, delta.X))
+			line.BackgroundColor3 = config.SkeletonColor
+		end
+	end
 end
 
 function EspPreview:SetConfig(config)
 	self.Config = config
 	self.Box.Visible = config ~= nil
-	if not config then return end
+	if not config then
+		self:UpdateSkeleton()
+		return
+	end
 	self.Outline.Transparency = config.Box and 0 or 1
 	self.BoxStroke.Transparency = config.Box and 0 or 1
 	self.BoxStroke.Color = config.BoxColor
@@ -4774,17 +4849,16 @@ function EspPreview:SetConfig(config)
 	self.HealthGradient.Enabled = config.HealthBarType == "Gradient"
 	self.HealthGradient.Color = ColorSequence.new(config.HealthFullColor, config.HealthLowColor)
 	self.Health.BackgroundColor3 = config.HealthBarType == "Dynamic"
-		and config.HealthLowColor:Lerp(config.HealthFullColor, 0.72) or config.HealthFullColor
+		and config.HealthLowColor:Lerp(config.HealthFullColor, self.HealthValue / 100)
+		or config.HealthBarType == "Gradient" and Color3.new(1, 1, 1)
+		or config.HealthFullColor
 	self.Name.Visible = config.Name
 	self.Name.TextColor3 = config.NameColor
 	self.Weapon.Visible = config.Weapon
 	self.Weapon.TextColor3 = config.WeaponColor
 	self.Distance.Visible = config.Distance
 	self.Distance.TextColor3 = config.DistanceColor
-	for _, joint in ipairs(self.Skeleton) do
-		joint.Frame.Visible = config.Skeleton
-		joint.Frame.BackgroundColor3 = config.SkeletonColor
-	end
+	self:UpdateSkeleton()
 end
 
 function Section:_row(height)
