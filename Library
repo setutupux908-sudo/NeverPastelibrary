@@ -4727,6 +4727,11 @@ function Tab:AddEspPreview(options)
 		health.Position = UDim2.fromScale(0, 1 - ratio)
 		if config.HealthBarType == "Dynamic" then
 			health.BackgroundColor3 = config.HealthLowColor:Lerp(config.HealthFullColor, ratio)
+		elseif config.HealthBarType == "Gradient" then
+			healthGradient.Color = ColorSequence.new(
+				config.HealthLowColor:Lerp(config.HealthFullColor, ratio),
+				config.HealthLowColor
+			)
 		end
 	end)
 	preview:SetConfig(options.Config)
@@ -4830,7 +4835,10 @@ function EspPreview:SetConfig(config)
 	self.Glow.ImageColor3 = config.BoxColor
 	self.HealthBack.Visible = config.HealthBar
 	self.HealthGradient.Enabled = config.HealthBarType == "Gradient"
-	self.HealthGradient.Color = ColorSequence.new(config.HealthFullColor, config.HealthLowColor)
+	self.HealthGradient.Color = ColorSequence.new(
+		config.HealthLowColor:Lerp(config.HealthFullColor, self.HealthValue / 100),
+		config.HealthLowColor
+	)
 	self.Health.BackgroundColor3 = config.HealthBarType == "Dynamic"
 		and config.HealthLowColor:Lerp(config.HealthFullColor, self.HealthValue / 100)
 		or config.HealthBarType == "Gradient" and Color3.new(1, 1, 1)
