@@ -4768,7 +4768,9 @@ function EspPreview:SetConfig(config)
 		return
 	end
 	self.Outline.Transparency = config.Box and 0 or 1
+	self.Outline.Thickness = (config.BoxThickness or 1) + 2
 	self.BoxStroke.Transparency = config.Box and 0 or 1
+	self.BoxStroke.Thickness = config.BoxThickness or 1
 	self.BoxStroke.Color = config.BoxColor
 	self.Fill.Visible = config.Box and config.BoxFill
 	self.FillGradient.Color = ColorSequence.new(config.FillColor1, config.FillColor2)
@@ -5624,6 +5626,7 @@ function Section:AddToggle(options)
 	local row, row_layout, hitbox, label, slot = self:_setting_row(row_height, slot_width)
 	label.Text = options.Name or ""
 	local swatch_fill = nil
+	local settings_button
 
 	local inline_color_host = create("Frame", {
 		AnchorPoint = Vector2.new(1, 0.5),
@@ -5646,7 +5649,10 @@ function Section:AddToggle(options)
 		local host_width = inline_color_layout.AbsoluteContentSize.X
 		local gap = host_width > 0 and 8 or 0
 		inline_color_host.Size = UDim2.fromOffset(host_width, row_height)
-		label.Size = UDim2.new(1, -(slot_width + 12 + host_width + gap), 1, 0)
+		label.Size = UDim2.new(1, -(slot_width + 12 + host_width + gap + (settings_button and 20 or 0)), 1, 0)
+		if settings_button then
+			settings_button.Position = UDim2.new(1, -(slot_width + 8 + host_width + gap), 0.5, 0)
+		end
 	end
 
 	local switch = create("Frame", {
@@ -6697,6 +6703,9 @@ function Section:AddToggle(options)
 		if not value and self.popup_open then
 			self:SetPopupVisible(false)
 		end
+		if not value and self.settings and self.settings.popup_open then
+			self.settings:SetPopupVisible(false)
+		end
 	end
 
 	connect(self.window.connections, hitbox.MouseEnter, function()
@@ -6726,6 +6735,7 @@ function Section:AddToggle(options)
 	end)
 
 	connect(self.window.connections, hitbox.MouseButton1Click, function()
+		if settings_button and point_inside(settings_button, picker_input_position()) then return end
 		toggle:Toggle()
 	end)
 
@@ -7090,6 +7100,177 @@ function Section:AddToggle(options)
 		control = toggle,
 	})
 	insert(self.window.entries, toggle.search_entry)
+	function toggle:AddSettings(settings_options)
+		if toggle.settings then return toggle.settings end
+		settings_options = settings_options or {}
+		local popup_width = settings_options.Width or 210
+		settings_button = create("ImageButton", {
+			AnchorPoint = Vector2.new(1, 0.5),
+			Size = UDim2.fromOffset(14, 14),
+			BackgroundTransparency = 1,
+			Image = _lucide["cog"],
+			ImageColor3 = toggle.library.theme.text_soft,
+			AutoButtonColor = false,
+			ZIndex = 4,
+		}, hitbox)
+		refresh_inline_color_layout()
+
+		local overlay = create("TextButton", {
+			Visible = false,
+			Position = UDim2.fromOffset(-2000, -2000),
+			Size = UDim2.fromOffset(6000, 6000),
+			BackgroundTransparency = 1,
+			Text = "",
+			Active = true,
+			ZIndex = 59,
+		}, toggle.window.popup_container)
+		local panel = create("Frame", {
+			Visible = false,
+			Size = UDim2.fromOffset(popup_width, 0),
+			BackgroundColor3 = toggle.library.theme.panel_soft,
+			BorderSizePixel = 0,
+			ClipsDescendants = true,
+			Active = true,
+			ZIndex = 60,
+		}, toggle.window.popup_container)
+		round_ui(panel, 4)
+		stroke(panel, toggle.library.theme.line, 0.15, 1)
+		local panel_padding = padding(panel, 8, 8, 8, 8)
+		local panel_layout = create("UIListLayout", {
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, 6),
+		}, panel)
+		local settings = setmetatable({
+			content = panel,
+			library = toggle.library,
+			window = toggle.window,
+			section = toggle.section,
+			tab = toggle.section.tab,
+			name = toggle.name .. " settings",
+			popup_open = false,
+		}, Section)
+		toggle.settings = settings
+		function settings:AddSlider(slider_options)
+			local manager = toggle._scope_manager
+			if not manager then return Section.AddSlider(self, slider_options) end
+			local scoped_options = shallow_copy(normalize(slider_options, "Name"))
+			local user_callback = scoped_options.Callback
+			local captured_flag = scoped_options.Flag or scoped_options.Name
+			scoped_options.SkipConfig = true
+			scoped_options.Callback = function(value)
+				manager:_capture_single(captured_flag)
+				if user_callback then user_callback(value) end
+			end
+			local control = Section.AddSlider(self, scoped_options)
+			captured_flag = control.flag
+			return manager:_register_bound_control(control)
+		end
+		function settings:AddToggle(toggle_options)
+			toggle_options = normalize(toggle_options, "Name")
+			local flag = toggle_options.Flag or (toggle.flag .. "_" .. tostring(toggle_options.Name):lower():gsub("%s+", "_"))
+			local manager = toggle._scope_manager
+			local state = toggle_options.Default == true
+			local row, _, hitbox, label, slot = self:_setting_row(toggle_options.Height or 17, 18)
+			label.Text = toggle_options.Name or ""
+			local check = create("ImageLabel", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.fromOffset(12, 12),
+				BackgroundTransparency = 1,
+				Image = "rbxassetid://10709790644",
+				ImageColor3 = self.library.theme.accent,
+				Visible = state,
+			}, slot)
+			local control = { frame = row, flag = flag }
+			local control_library = self.library
+			control_library.flags[flag] = state
+			function control:Get() return state end
+			function control:Set(value)
+				state = value == true
+				check.Visible = state
+				control_library.flags[flag] = state
+				if manager then manager:_capture_single(flag) end
+				if toggle_options.Callback and not self._mute_callback then toggle_options.Callback(state) end
+				return state
+			end
+			function control:SetVisible(value) self.frame.Visible = value == true end
+			connect(self.window.connections, hitbox.MouseButton1Click, function()
+				control:Set(not state)
+			end)
+			control.search_entry = refresh_search_entry({
+				kind = "toggle",
+				name = toggle_options.Name or "",
+				flag = flag,
+				skip_config = toggle_options.SkipConfig == true or manager ~= nil,
+				tab = self.tab,
+				tab_name = self.tab.name,
+				section_name = self.name,
+				control = control,
+				GetConfigValue = function(entry, defaults)
+					if entry.skip_config then return nil end
+					if defaults then return toggle_options.Default == true end
+					return control:Get()
+				end,
+				ApplyConfigValue = function(entry, value, fire_callback)
+					if entry.skip_config then return end
+					if type(value) == "table" then
+						local saved = value.state
+						if saved == nil then saved = value.active end
+						value = saved
+					end
+					local previous_mute = control._mute_callback
+					control._mute_callback = not fire_callback
+					control:Set(value == true)
+					control._mute_callback = previous_mute
+				end,
+			})
+			insert(self.window.entries, control.search_entry)
+			if manager then return manager:_register_bound_control(control) end
+			return control
+		end
+
+		local function refresh_panel()
+			local height = panel_layout.AbsoluteContentSize.Y + panel_padding.PaddingTop.Offset + panel_padding.PaddingBottom.Offset
+			panel.Size = UDim2.fromOffset(popup_width, settings.popup_open and height or 0)
+			if not settings.popup_open then return end
+			local viewport = viewport_size()
+			local root_pos = toggle.window.root.AbsolutePosition
+			local anchor_pos = settings_button.AbsolutePosition
+			local x = anchor_pos.X + settings_button.AbsoluteSize.X + 6
+			if x + popup_width > viewport.X - 6 then x = anchor_pos.X - popup_width - 6 end
+			local y = anchor_pos.Y - 6
+			x = clamp(x, 6, max(6, viewport.X - popup_width - 6))
+			y = clamp(y, 6, max(6, viewport.Y - height - 6))
+			panel.Position = UDim2.fromOffset(x - root_pos.X, y - root_pos.Y)
+		end
+
+		function settings:SetPopupVisible(value)
+			self.popup_open = value == true
+			if self.popup_open then
+				if self.window.current_popup and self.window.current_popup ~= self then
+					self.window.current_popup:SetPopupVisible(false)
+				end
+				self.window.current_popup = self
+			elseif self.window.current_popup == self then
+				self.window.current_popup = nil
+			end
+			overlay.Visible = self.popup_open
+			panel.Visible = self.popup_open
+			settings_button.ImageColor3 = self.popup_open and self.library.theme.accent or self.library.theme.text_soft
+			refresh_panel()
+		end
+
+		connect(toggle.window.connections, settings_button.MouseButton1Click, function()
+			settings:SetPopupVisible(not settings.popup_open)
+		end)
+		connect(toggle.window.connections, overlay.MouseButton1Click, function()
+			settings:SetPopupVisible(false)
+		end)
+		connect(toggle.window.connections, panel_layout:GetPropertyChangedSignal("AbsoluteContentSize"), refresh_panel)
+		connect(toggle.window.connections, settings_button:GetPropertyChangedSignal("AbsolutePosition"), refresh_panel)
+		connect(toggle.window.connections, toggle.window.root:GetPropertyChangedSignal("AbsoluteSize"), refresh_panel)
+		return settings
+	end
 	self._last_toggle = toggle
 	bump_zindex(popup, 20)
 	return toggle
