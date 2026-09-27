@@ -7148,6 +7148,7 @@ function Section:AddToggle(options)
 			tab = toggle.section.tab,
 			name = toggle.name .. " settings",
 			popup_open = false,
+			_is_toggle_settings = true,
 		}, Section)
 		toggle.settings = settings
 		function settings:AddSlider(slider_options)
@@ -7162,6 +7163,21 @@ function Section:AddToggle(options)
 				if user_callback then user_callback(value) end
 			end
 			local control = Section.AddSlider(self, scoped_options)
+			captured_flag = control.flag
+			return manager:_register_bound_control(control)
+		end
+		function settings:AddColorPicker(color_options)
+			local manager = toggle._scope_manager
+			if not manager then return Section.AddColorPicker(self, color_options) end
+			local scoped_options = shallow_copy(normalize(color_options, "Name"))
+			local user_callback = scoped_options.Callback
+			local captured_flag = scoped_options.Flag or scoped_options.Name
+			scoped_options.SkipConfig = true
+			scoped_options.Callback = function(...)
+				manager:_capture_single(captured_flag)
+				if user_callback then user_callback(...) end
+			end
+			local control = Section.AddColorPicker(self, scoped_options)
 			captured_flag = control.flag
 			return manager:_register_bound_control(control)
 		end
@@ -7231,7 +7247,7 @@ function Section:AddToggle(options)
 
 		local function refresh_panel()
 			local height = panel_layout.AbsoluteContentSize.Y + panel_padding.PaddingTop.Offset + panel_padding.PaddingBottom.Offset
-			panel.Size = UDim2.fromOffset(popup_width, settings.popup_open and height or 0)
+			panel.Size = UDim2.fromOffset(popup_width, height)
 			if not settings.popup_open then return end
 			local viewport = viewport_size()
 			local root_pos = toggle.window.root.AbsolutePosition
@@ -7246,6 +7262,9 @@ function Section:AddToggle(options)
 
 		function settings:SetPopupVisible(value)
 			self.popup_open = value == true
+			if not self.popup_open and self.child_popup then
+				self.child_popup:SetPopupVisible(false)
+			end
 			if self.popup_open then
 				if self.window.current_popup and self.window.current_popup ~= self then
 					self.window.current_popup:SetPopupVisible(false)
@@ -7368,6 +7387,7 @@ function Section:AddColorPicker(options)
 		rainbow = false,
 		popup_open = false,
 	}
+	local parent_settings = self._is_toggle_settings and self or nil
 
 	local popup_overlay = create("TextButton", {
 		Visible = false,
@@ -7375,7 +7395,7 @@ function Section:AddColorPicker(options)
 		Size = UDim2.fromOffset(6000, 6000),
 		BackgroundTransparency = 1,
 		Text = "",
-		ZIndex = 49,
+		ZIndex = parent_settings and 79 or 49,
 		Active = true,
 	}, self.window.popup_container)
 
@@ -7386,7 +7406,7 @@ function Section:AddColorPicker(options)
 		BackgroundColor3 = self.library.theme.panel_soft,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
-		ZIndex = 50,
+		ZIndex = parent_settings and 80 or 50,
 		Active = true,
 	}, self.window.popup_container)
 	round_ui(popup, 4)
@@ -7636,13 +7656,24 @@ function Section:AddColorPicker(options)
 
 	function picker:SetPopupVisible(value)
 		self.popup_open = value == true
-		if self.popup_open then
-			if self.window.current_popup and self.window.current_popup ~= self then
-				self.window.current_popup:SetPopupVisible(false)
+		if parent_settings then
+			if self.popup_open then
+				if parent_settings.child_popup and parent_settings.child_popup ~= self then
+					parent_settings.child_popup:SetPopupVisible(false)
+				end
+				parent_settings.child_popup = self
+			else
+				if parent_settings.child_popup == self then parent_settings.child_popup = nil end
 			end
-			self.window.current_popup = self
-		elseif self.window.current_popup == self then
-			self.window.current_popup = nil
+		else
+			if self.popup_open then
+				if self.window.current_popup and self.window.current_popup ~= self then
+					self.window.current_popup:SetPopupVisible(false)
+				end
+				self.window.current_popup = self
+			elseif self.window.current_popup == self then
+				self.window.current_popup = nil
+			end
 		end
 		refresh_popup_height()
 	end
