@@ -4618,8 +4618,8 @@ function Tab:AddEspPreview(options)
 	viewport.CurrentCamera = camera
 
 	local box = create("Frame", {
-		Position = UDim2.new(0.17, 0, 0.12, 0),
-		Size = UDim2.new(0.66, 0, 0.76, 0),
+		Position = UDim2.new(0.06, 0, 0.175, 0),
+		Size = UDim2.new(0.88, 0, 0.65, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 	}, display)
@@ -4701,7 +4701,6 @@ function Tab:AddEspPreview(options)
 		HealthBack = healthBack, Health = health, HealthGradient = healthGradient,
 		Name = name, Weapon = weapon, Distance = distance,
 		Skeleton = joints, SkeletonLayer = skeleton,
-		ModelDistance = options.ModelDistance or 1.6,
 		HealthValue = 0, HealthDirection = 1,
 	}, EspPreview)
 	connect(self.window.connections, display:GetPropertyChangedSignal("AbsoluteSize"), function()
@@ -4730,15 +4729,6 @@ function Tab:AddEspPreview(options)
 			health.BackgroundColor3 = config.HealthLowColor:Lerp(config.HealthFullColor, ratio)
 		end
 	end)
-	section:AddSlider({
-		Name = "Model distance",
-		Flag = "esp_preview_model_distance",
-		Min = 1.2,
-		Max = 3,
-		Step = 0.05,
-		Default = preview.ModelDistance,
-		Callback = function(value) preview:SetModelDistance(value) end,
-	})
 	preview:SetConfig(options.Config)
 	return preview
 end
@@ -4771,16 +4761,9 @@ function EspPreview:SetModel(source)
 	model.Parent = self.World
 	self.Model = model
 	local bounds, size = model:GetBoundingBox()
-	self.CameraTarget = bounds.Position
-	self.BaseDistance = math.max(size.Y * 0.5 / math.tan(math.rad(self.Camera.FieldOfView) * 0.5), 4)
-	self:SetModelDistance(self.ModelDistance)
-end
-
-function EspPreview:SetModelDistance(value)
-	self.ModelDistance = value
-	if not self.Model then return end
-	local target = self.CameraTarget
-	self.Camera.CFrame = CFrame.lookAt(target + Vector3.new(-self.BaseDistance * value, 0, 0), target)
+	local target = bounds.Position
+	local distance = math.max(size.Y * 0.5 / math.tan(math.rad(self.Camera.FieldOfView) * 0.5), 4) * 1.6
+	self.Camera.CFrame = CFrame.lookAt(target + Vector3.new(-distance, 0, 0), target)
 	self:UpdateSkeleton()
 end
 
