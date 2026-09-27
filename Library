@@ -4597,7 +4597,7 @@ function Tab:AddEspPreview(options)
 	local section = self:AddSection({ Name = options.Name or "ESP Preview", Side = options.Side or "Middle" })
 	local theme = self.window.library.theme
 	local display = create("Frame", {
-		Size = UDim2.new(1, 0, 0, options.Height or 250),
+		Size = UDim2.new(1, 0, 0, options.Height or 100),
 		BackgroundColor3 = theme.bg,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
