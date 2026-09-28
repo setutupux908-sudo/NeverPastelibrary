@@ -1777,7 +1777,7 @@ function Library:CreateWindow(options)
 	}, info_panel)
 
 	-- Forward declarations for watermark settings
-	local wm_style = "Blue"
+	local wm_style = "Purple"
 	local wm_apply_style
 
 	-- ========== SETTINGS PANEL ==========
@@ -1969,7 +1969,7 @@ function Library:CreateWindow(options)
 		BackgroundColor3 = self.theme.panel,
 		BorderSizePixel = 0,
 		Font = Enum.Font.GothamMedium,
-		Text = "Blue",
+		Text = "Purple",
 		TextSize = 10,
 		TextColor3 = self.theme.text_soft,
 		AutoButtonColor = false,
@@ -1978,7 +1978,7 @@ function Library:CreateWindow(options)
 	round_ui(wm_style_btn, 3)
 	stroke(wm_style_btn, self.theme.line, 0.35, 1)
 
-	local wm_styles = { "Blue", "Purple", "Black" }
+	local wm_styles = { "Purple", "Blue", "Black" }
 	local wm_style_index = 1
 	connect(window.connections, wm_style_btn.MouseButton1Click, function()
 		wm_style_index = wm_style_index % #wm_styles + 1
@@ -3193,9 +3193,6 @@ function Library:CreateWindow(options)
 	end
 
 	-- ========== WATERMARK OVERLAY ==========
-	-- "Tactical" watermark (user-supplied design, adapted): emblem "O",
-	-- nickname + FPS + ping, animated neon runners and wave lines.
-	-- Styles: Black / Blue (default) / Purple, switched from Settings.
 	local wm_gui = create("ScreenGui", {
 		Name = gui_name .. "_Watermark",
 		IgnoreGuiInset = true,
@@ -3205,257 +3202,96 @@ function Library:CreateWindow(options)
 	}, get_hui)
 
 	local WM_STYLES = {
-		Blue = {
-			Accent = rgb(89, 215, 255),
-			Light = rgb(206, 240, 255),
-		},
-		Purple = {
-			Accent = rgb(183, 117, 255),
-			Light = rgb(232, 207, 255),
-		},
-		Black = {
-			Accent = rgb(120, 126, 134),
-			Light = rgb(214, 218, 224),
-		},
+		Purple = { Primary = rgb(159, 91, 246), Light = rgb(220, 188, 255), Accent = self.theme.accent },
+		Blue = { Primary = rgb(89, 169, 255), Light = rgb(195, 224, 255), Accent = rgb(89, 169, 255) },
+		Black = { Primary = rgb(190, 190, 190), Light = rgb(245, 245, 245), Accent = self.theme.text_soft },
 	}
 
-	-- Top-right anchored: scale-based position sticks to the corner on ANY
-	-- resolution / window resize; UIScale below multiplies visual size 1.5x
-	-- around the anchor point, so the offset stays resolution-correct
 	local wm_root = create("Frame", {
 		Active = true,
 		AnchorPoint = Vector2.new(1, 0),
 		BackgroundTransparency = 1,
 		Position = UDim2.new(1, -18, 0, 18),
-		Size = UDim2.fromOffset(164, 30),
+		Size = UDim2.fromOffset(244, 32),
 	}, wm_gui)
-
-	create("UIScale", { Scale = 1.5 }, wm_root)
-
-	local wm_shadow = create("Frame", {
-		BackgroundColor3 = rgb(0, 0, 0),
-		BackgroundTransparency = 0.58,
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(0, 2),
-		Size = UDim2.fromOffset(164, 26),
-		ZIndex = 0,
-	}, wm_root)
-	round_ui(wm_shadow, 2)
 
 	local wm_panel = create("Frame", {
 		Active = true,
-		BackgroundColor3 = rgb(24, 29, 35),
-		BackgroundTransparency = 0.12,
+		BackgroundColor3 = self.theme.bar,
 		BorderSizePixel = 0,
-		ClipsDescendants = true,
-		Size = UDim2.fromOffset(164, 26),
-		ZIndex = 1,
+		Size = UDim2.fromScale(1, 1),
 	}, wm_root)
-	round_ui(wm_panel, 2)
+	round_ui(wm_panel, 5)
+	stroke(wm_panel, self.theme.line, 0, 1)
 
-	create("UIGradient", {
-		Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, rgb(36, 43, 51)),
-			ColorSequenceKeypoint.new(0.48, rgb(25, 31, 38)),
-			ColorSequenceKeypoint.new(1, rgb(18, 22, 27)),
-		}),
-		Rotation = 90,
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.02),
-			NumberSequenceKeypoint.new(1, 0.12),
-		}),
-	}, wm_panel)
-
-	local wm_panel_stroke = create("UIStroke", {
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		Thickness = 1,
-		Transparency = 0.08,
-	}, wm_panel)
-
-	local wm_top_runner = create("Frame", {
-		BackgroundTransparency = 0.04,
+	local wm_accent = create("Frame", {
+		Position = UDim2.fromOffset(0, 6),
+		Size = UDim2.fromOffset(2, 20),
 		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(-32, 0),
-		Size = UDim2.fromOffset(32, 1),
-		ZIndex = 4,
 	}, wm_panel)
 
-	local wm_bottom_runner = create("Frame", {
-		BackgroundTransparency = 0.04,
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(164, 25),
-		Size = UDim2.fromOffset(32, 1),
-		ZIndex = 4,
+	local wm_brand = create("TextLabel", {
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(10, 0),
+		Size = UDim2.fromOffset(92, 32),
+		Font = Enum.Font.GothamBlack,
+		Text = options.Title or "OXYcodone",
+		TextColor3 = Color3.new(1, 1, 1),
+		TextSize = 13,
+		TextXAlignment = Enum.TextXAlignment.Left,
 	}, wm_panel)
-
-	local wm_runner_transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 1),
-		NumberSequenceKeypoint.new(0.35, 0.45),
-		NumberSequenceKeypoint.new(0.5, 0),
-		NumberSequenceKeypoint.new(0.65, 0.45),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	create("UIGradient", { Transparency = wm_runner_transparency }, wm_top_runner)
-	create("UIGradient", { Transparency = wm_runner_transparency }, wm_bottom_runner)
-
-	local wm_left_neon = create("Frame", {
-		BackgroundTransparency = 0.08,
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(0, 2),
-		Size = UDim2.fromOffset(1, 22),
-		ZIndex = 4,
-	}, wm_panel)
-
-	local wm_right_neon = create("Frame", {
-		BackgroundTransparency = 0.08,
-		BorderSizePixel = 0,
-		Position = UDim2.new(1, -1, 0, 2),
-		Size = UDim2.fromOffset(1, 22),
-		ZIndex = 4,
-	}, wm_panel)
-
-	local wm_top_neon = create("Frame", {
-		BackgroundTransparency = 0.48,
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(2, 1),
-		Size = UDim2.fromOffset(160, 1),
-		ZIndex = 3,
-	}, wm_panel)
-
-	local wm_bottom_neon = create("Frame", {
-		BackgroundTransparency = 0.58,
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(2, 24),
-		Size = UDim2.fromOffset(160, 1),
-		ZIndex = 3,
-	}, wm_panel)
-
-	local wm_wave_dots = {}
-	for wave_index = 1, 3 do
-		local wave = {}
-		for point_index = 0, 54 do
-			wave[#wave + 1] = create("Frame", {
-				BackgroundTransparency = wave_index % 2 == 0 and 0.9 or 0.84,
-				BorderSizePixel = 0,
-				Position = UDim2.fromOffset(point_index * 3, 0),
-				Size = UDim2.fromOffset(4, 1),
-				ZIndex = 2,
-			}, wm_panel)
-		end
-		wm_wave_dots[wave_index] = wave
-	end
+	local wm_brand_gradient = create("UIGradient", {}, wm_brand)
 
 	create("Frame", {
-		BackgroundColor3 = rgb(231, 241, 250),
-		BackgroundTransparency = 0.89,
+		Position = UDim2.fromOffset(105, 8),
+		Size = UDim2.fromOffset(1, 16),
+		BackgroundColor3 = self.theme.line,
 		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(1, 1),
-		Size = UDim2.new(1, -2, 0, 1),
-		ZIndex = 3,
-	}, wm_panel)
-
-	local wm_emblem_glow = create("TextLabel", {
-		BackgroundTransparency = 1,
-		Font = Enum.Font.GothamBold,
-		Position = UDim2.fromOffset(2, 0),
-		Rotation = -6,
-		Size = UDim2.fromOffset(34, 26),
-		Text = "Oxy",
-		TextSize = 16,
-		TextTransparency = 0.62,
-		ZIndex = 4,
-	}, wm_panel)
-
-	local wm_emblem = create("TextLabel", {
-		BackgroundTransparency = 1,
-		Font = Enum.Font.GothamBold,
-		Position = UDim2.fromOffset(2, 0),
-		Rotation = -6,
-		Size = UDim2.fromOffset(34, 26),
-		Text = "Oxy",
-		TextSize = 14,
-		ZIndex = 5,
 	}, wm_panel)
 
 	create("TextLabel", {
 		BackgroundTransparency = 1,
-		Font = Enum.Font.GothamBold,
-		Position = UDim2.fromOffset(42, 0),
-		Size = UDim2.fromOffset(48, 26),
+		Position = UDim2.fromOffset(112, 0),
+		Size = UDim2.fromOffset(54, 32),
+		Font = Enum.Font.GothamMedium,
 		Text = tostring(lp and lp.DisplayName or "Player"),
-		TextColor3 = rgb(243, 241, 245),
-		TextSize = 9,
+		TextColor3 = self.theme.text_soft,
+		TextSize = 10,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex = 5,
 	}, wm_panel)
 
 	local wm_fps_metric = create("TextLabel", {
 		BackgroundTransparency = 1,
-		Font = Enum.Font.GothamBold,
-		Position = UDim2.fromOffset(94, 0),
+		Position = UDim2.fromOffset(169, 0),
 		RichText = true,
-		Size = UDim2.fromOffset(34, 26),
-		Text = '<b>--</b> <font size="7" color="#B7C0CB">fps</font>',
-		TextColor3 = rgb(243, 241, 245),
-		TextSize = 9,
+		Size = UDim2.fromOffset(36, 32),
+		Font = Enum.Font.GothamMedium,
+		Text = '-- <font color="#9A9A9A">fps</font>',
+		TextColor3 = self.theme.text,
+		TextSize = 10,
 		TextXAlignment = Enum.TextXAlignment.Center,
-		ZIndex = 5,
 	}, wm_panel)
 
 	local wm_ping_metric = create("TextLabel", {
 		BackgroundTransparency = 1,
-		Font = Enum.Font.GothamBold,
-		Position = UDim2.fromOffset(128, 0),
+		Position = UDim2.fromOffset(207, 0),
 		RichText = true,
-		Size = UDim2.fromOffset(34, 26),
-		Text = '<b>--</b> <font size="7" color="#B7C0CB">ms</font>',
-		TextColor3 = rgb(243, 241, 245),
-		TextSize = 9,
+		Size = UDim2.fromOffset(34, 32),
+		Font = Enum.Font.GothamMedium,
+		Text = '-- <font color="#9A9A9A">ms</font>',
+		TextColor3 = self.theme.text,
+		TextSize = 10,
 		TextXAlignment = Enum.TextXAlignment.Center,
-		ZIndex = 5,
 	}, wm_panel)
 
 	wm_apply_style = function(style_name)
-		local style = WM_STYLES[style_name] or WM_STYLES.Blue
-		wm_panel_stroke.Color = style.Accent
-		wm_top_runner.BackgroundColor3 = style.Light
-		wm_bottom_runner.BackgroundColor3 = style.Light
-		wm_left_neon.BackgroundColor3 = style.Light
-		wm_right_neon.BackgroundColor3 = style.Light
-		wm_top_neon.BackgroundColor3 = style.Accent
-		wm_bottom_neon.BackgroundColor3 = style.Accent
-		wm_emblem.TextColor3 = style.Accent
-		wm_emblem_glow.TextColor3 = style.Accent
-		for wave_index, wave in ipairs(wm_wave_dots) do
-			local color = wave_index % 2 == 0 and style.Accent or style.Light
-			for _, point in ipairs(wave) do
-				point.BackgroundColor3 = color
-			end
-		end
+		local style = WM_STYLES[style_name] or WM_STYLES.Purple
+		wm_accent.BackgroundColor3 = style.Accent
+		wm_brand_gradient.Color = ColorSequence.new(style.Light, style.Primary)
 	end
 	wm_apply_style(wm_style)
 
-	-- Neon motion: side pulse + runner sweeps
-	for _, neon in ipairs({ wm_left_neon, wm_right_neon }) do
-		tween_service:Create(
-			neon,
-			TweenInfo.new(2.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-			{ BackgroundTransparency = 0.42 }
-		):Play()
-	end
-	tween_service:Create(
-		wm_top_runner,
-		TweenInfo.new(3.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, false),
-		{ Position = UDim2.fromOffset(164, 0) }
-	):Play()
-	tween_service:Create(
-		wm_bottom_runner,
-		TweenInfo.new(4.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, false),
-		{ Position = UDim2.fromOffset(-32, 25) }
-	):Play()
-
-	-- Drag
 	do
 		local dragging, drag_input, drag_start, start_position
 		connect(window.connections, wm_panel.InputBegan, function(input)
@@ -3470,7 +3306,6 @@ function Library:CreateWindow(options)
 			if not dragging then return end
 			if input ~= drag_input and input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
 			local delta = input.Position - drag_start
-			-- keep scale components: root is corner-anchored (Position uses scale 1 on X)
 			wm_root.Position = UDim2.new(
 				start_position.X.Scale, start_position.X.Offset + delta.X,
 				start_position.Y.Scale, start_position.Y.Offset + delta.Y
@@ -3484,50 +3319,26 @@ function Library:CreateWindow(options)
 		end)
 	end
 
-	-- FPS / ping / wave animation driver
-	local wm_frames, wm_elapsed, wm_ping_elapsed, wm_wave_elapsed = 0, 0, 1, 0
+	local wm_frames, wm_elapsed, wm_ping_elapsed = 0, 0, 1
 	local wm_smoothed_fps = 60
-
 	insert(window._renderstep_hooks, function(dt)
 		if not wm_root.Visible then return end
-
 		wm_frames = wm_frames + 1
 		wm_elapsed = wm_elapsed + dt
 		wm_ping_elapsed = wm_ping_elapsed + dt
-		wm_wave_elapsed = wm_wave_elapsed + dt
-
-		if wm_wave_elapsed >= 1 / 30 then
-			local now = os.clock()
-			for wave_index, wave in ipairs(wm_wave_dots) do
-				local center = 5 + wave_index * 5
-				local amplitude = 1.8 + wave_index * 0.5
-				local frequency = 0.24 + wave_index * 0.025
-				local speed = 0.45 + wave_index * 0.11
-				for point_index, point in ipairs(wave) do
-					local x = (point_index - 1) * 3
-					local y = center
-						+ math.sin((point_index - 1) * frequency + now * speed) * amplitude
-						+ math.sin((point_index - 1) * 0.09 - now * 0.28) * 0.65
-					point.Position = UDim2.fromOffset(x, clamp(floor(y + 0.5), 1, 24))
-				end
-			end
-			wm_wave_elapsed = 0
-		end
-
 		if wm_elapsed >= 0.4 then
 			local measured = wm_frames / wm_elapsed
 			wm_smoothed_fps = wm_smoothed_fps + (measured - wm_smoothed_fps) * 0.35
-			wm_fps_metric.Text = string.format('<b>%d</b> <font size="7" color="#B7C0CB">fps</font>', floor(wm_smoothed_fps + 0.5))
+			wm_fps_metric.Text = string.format('%d <font color="#9A9A9A">fps</font>', floor(wm_smoothed_fps + 0.5))
 			wm_frames = 0
 			wm_elapsed = 0
 		end
-
 		if wm_ping_elapsed >= 1 then
 			local ping
 			pcall(function()
 				ping = round(stats_service.Network.ServerStatsItem["Data Ping"]:GetValue())
 			end)
-			wm_ping_metric.Text = string.format('<b>%s</b> <font size="7" color="#B7C0CB">ms</font>', ping and tostring(ping) or "--")
+			wm_ping_metric.Text = string.format('%s <font color="#9A9A9A">ms</font>', ping and tostring(ping) or "--")
 			wm_ping_elapsed = 0
 		end
 	end)
@@ -3547,23 +3358,20 @@ function Library:CreateWindow(options)
 
 	window._active_binds = {}
 
-	-- Dark + pink palette per reference mock
-	local KBL_PANEL = rgb(31, 28, 34)
-	local KBL_ACCENT = rgb(226, 73, 168)
-	local KBL_TEXT = rgb(245, 243, 247)
-	local KBL_W = 150
-	local KBL_HEADER_H = 24
+	local KBL_PANEL = self.theme.bg
+	local KBL_ACCENT = self.theme.accent
+	local KBL_TEXT = self.theme.text
+	local KBL_W = 180
+	local KBL_HEADER_H = 26
 	local KBL_ROW_H = 20
 	local KBL_ROW_PAD = 3
 
-	local kbl_master = false -- settings toggle state
-	local kbl_shown = false  -- currently faded in
+	local kbl_master = false
+	local kbl_shown = false
 
-	-- Holder owns position/size; glow and panel are its children in the SAME
-	-- coordinate space, so the glow can never drift from the panel
 	local kbl_holder = create("Frame", {
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -12, 0, 52),
+		Position = UDim2.new(1, -18, 0, 58),
 		Size = UDim2.fromOffset(KBL_W, KBL_HEADER_H),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -3571,111 +3379,48 @@ function Library:CreateWindow(options)
 		ZIndex = 2,
 	}, kbl_gui)
 
-	-- Soft outer glow: pinned around the holder with scale sizing
-	local KBL_GLOW_PAD = 22
-	local KBL_GLOW_MIN_T = 0.6 -- transparency at full visibility
-	local kbl_glow = create("ImageLabel", {
-		Position = UDim2.fromOffset(-KBL_GLOW_PAD, -KBL_GLOW_PAD),
-		Size = UDim2.new(1, KBL_GLOW_PAD * 2, 1, KBL_GLOW_PAD * 2),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Image = _icons.shadow,
-		ImageColor3 = KBL_ACCENT,
-		ImageTransparency = 1,
-		ScaleType = Enum.ScaleType.Slice,
-		SliceCenter = Rect.new(49, 49, 450, 450),
-		ZIndex = 1,
-	}, kbl_holder)
-
-	-- CanvasGroup so the whole panel fades as one via GroupTransparency.
-	-- Background is mostly transparent: the frost comes from the glass part below.
 	local kbl_frame = create("CanvasGroup", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = KBL_PANEL,
-		BackgroundTransparency = 0.45,
 		GroupTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 		ZIndex = 2,
 	}, kbl_holder)
-	round_ui(kbl_frame, 6)
-	-- UIStroke ignores CanvasGroup.GroupTransparency (rendered separately), so
-	-- the rim is faded by hand in the renderstep hook alongside the glass alpha
-	local KBL_RIM_T = 0.82
-	local kbl_rim = stroke(kbl_frame, rgb(255, 255, 255), 1, 1) -- thin light edge, iOS glass rim
+	round_ui(kbl_frame, 5)
+	local kbl_rim = stroke(kbl_frame, self.theme.line, 1, 1)
 
-	-- ===== Frosted-glass look (texture imitation) =====
-	-- The real acrylic trick (Glass part + DepthOfFieldEffect) is off the
-	-- table: ANY DoF in Lighting makes every Glass surface in the scene
-	-- refract a blurred frame — the user's Glass chams went blurry whenever
-	-- the panel was visible. Frost is now faked with a soft noise texture
-	-- inside the panel; nothing is added to Lighting or the 3D scene, so no
-	-- interaction with chams/materials, and it looks the same on low graphics.
-	local kbl_frost = create("ImageLabel", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Image = "rbxassetid://8992230677", -- soft noise/grain
-		ImageColor3 = rgb(255, 255, 255),
-		ImageTransparency = 0.94,
-		ScaleType = Enum.ScaleType.Tile,
-		TileSize = UDim2.fromOffset(128, 128),
-		ZIndex = 3,
-	}, kbl_frame)
-	-- subtle top-light sheen, like light catching frosted glass
-	local kbl_sheen = create("Frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = rgb(255, 255, 255),
-		BackgroundTransparency = 0.93,
-		BorderSizePixel = 0,
-		ZIndex = 3,
-	}, kbl_frame)
-	round_ui(kbl_sheen, 6)
-	create("UIGradient", {
-		Rotation = 90,
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0),
-			NumberSequenceKeypoint.new(0.35, 0.75),
-			NumberSequenceKeypoint.new(1, 1),
-		}),
-	}, kbl_sheen)
-
-	-- Fade state (drives glow + rim, mirrors GroupTransparency fade)
-	local kbl_glass_alpha = 0 -- 0 hidden, 1 fully shown
-
-	insert(window._renderstep_hooks, function(dt)
-		-- Track fade: approach 1 when shown, 0 when hiding (matches 0.25s tween pace)
-		local target = (kbl_holder.Visible and kbl_shown) and 1 or 0
-		local step = dt / 0.25
-		if kbl_glass_alpha < target then
-			kbl_glass_alpha = math.min(1, kbl_glass_alpha + step)
-		elseif kbl_glass_alpha > target then
-			kbl_glass_alpha = math.max(0, kbl_glass_alpha - step)
-		end
-
-		-- Glow is parented to the holder, so only its fade needs driving;
-		-- same for the rim stroke (UIStroke ignores GroupTransparency)
-		kbl_glow.ImageTransparency = 1 - (1 - KBL_GLOW_MIN_T) * kbl_glass_alpha
-		kbl_rim.Transparency = 1 - (1 - KBL_RIM_T) * kbl_glass_alpha
-	end)
-
-	local kbl_title = create("TextLabel", {
-		Position = UDim2.fromOffset(0, 0),
+	create("Frame", {
 		Size = UDim2.new(1, 0, 0, KBL_HEADER_H),
+		BackgroundColor3 = self.theme.bar,
+		BorderSizePixel = 0,
+		ZIndex = 3,
+	}, kbl_frame)
+	create("Frame", {
+		Position = UDim2.fromOffset(0, 5),
+		Size = UDim2.fromOffset(2, KBL_HEADER_H - 10),
+		BackgroundColor3 = KBL_ACCENT,
+		BorderSizePixel = 0,
+		ZIndex = 4,
+	}, kbl_frame)
+
+	create("TextLabel", {
+		Position = UDim2.fromOffset(12, 0),
+		Size = UDim2.new(1, -20, 0, KBL_HEADER_H),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Font = Enum.Font.GothamBold,
 		Text = "KEYBINDS",
 		TextSize = 11,
-		TextColor3 = KBL_TEXT,
-		TextXAlignment = Enum.TextXAlignment.Center,
+		TextColor3 = self.theme.text_soft,
+		TextXAlignment = Enum.TextXAlignment.Left,
 		ZIndex = 4,
 	}, kbl_frame)
 
-	local kbl_underline = create("Frame", {
-		Position = UDim2.new(0, 6, 0, KBL_HEADER_H),
-		Size = UDim2.new(1, -12, 0, 1),
-		BackgroundColor3 = KBL_ACCENT,
+	create("Frame", {
+		Position = UDim2.fromOffset(0, KBL_HEADER_H),
+		Size = UDim2.new(1, 0, 0, 1),
+		BackgroundColor3 = self.theme.line,
 		BorderSizePixel = 0,
 		ZIndex = 4,
 	}, kbl_frame)
@@ -3724,8 +3469,10 @@ function Library:CreateWindow(options)
 		if shown then
 			kbl_holder.Visible = true
 			tween(kbl_frame, 0.25, { GroupTransparency = 0 })
+			tween(kbl_rim, 0.25, { Transparency = 0 })
 		else
 			local fade = tween_object(kbl_frame, 0.25, { GroupTransparency = 1 })
+			tween(kbl_rim, 0.25, { Transparency = 1 })
 			if fade then
 				connect(window.connections, fade.Completed, function()
 					if not kbl_shown then kbl_holder.Visible = false end
@@ -3793,7 +3540,7 @@ function Library:CreateWindow(options)
 			Position = UDim2.new(1, -2, 0.5, 0),
 			Size = UDim2.fromOffset(0, KBL_ROW_H - 4),
 			AutomaticSize = Enum.AutomaticSize.X,
-			BackgroundColor3 = KBL_ACCENT,
+			BackgroundColor3 = KBL_ACCENT:Lerp(KBL_PANEL, 0.82),
 			BorderSizePixel = 0,
 			ZIndex = 5,
 		}, row)
@@ -3806,7 +3553,7 @@ function Library:CreateWindow(options)
 			Font = Enum.Font.GothamMedium,
 			Text = badge_text,
 			TextSize = 10,
-			TextColor3 = rgb(255, 255, 255),
+			TextColor3 = KBL_ACCENT,
 			ZIndex = 6,
 		}, badge)
 		create("UIPadding", {
@@ -3879,7 +3626,7 @@ function Library:CreateWindow(options)
 
 		local total_height = KBL_HEADER_H + 5 + (count * (KBL_ROW_H + KBL_ROW_PAD)) + 3
 		kbl_body.Size = UDim2.new(1, -20, 0, count * (KBL_ROW_H + KBL_ROW_PAD))
-		-- Resize the holder; kbl_frame and the glow follow via scale sizing
+		-- Resize the holder; the panel follows its size
 		if was_shown then
 			tween(kbl_holder, 0.2, { Size = UDim2.fromOffset(KBL_W, total_height) })
 		else
