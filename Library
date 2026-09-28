@@ -4477,19 +4477,22 @@ function Tab:AddContextSelector(options)
 	local column = self.columns.Sidebar
 	assert(column, "Context selector requires a four-column tab")
 	local selector = { Selected = nil, Buttons = {}, Window = self.window }
+	local titleHeight = options.Title == false and 0 or 14
 	local holder = create("Frame", {
 		BackgroundTransparency = 1,
-		Size = UDim2.new(1, 0, 0, #(options.Items or {}) * 26 + 14),
+		Size = UDim2.new(1, 0, 0, #(options.Items or {}) * 26 + titleHeight),
 	}, column)
-	create("TextLabel", {
-		BackgroundTransparency = 1,
-		Size = UDim2.new(1, 0, 0, 14),
-		Font = Enum.Font.GothamSemibold,
-		Text = options.Title or "VISUALS",
-		TextSize = 10,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextColor3 = self.window.library.theme.text_soft,
-	}, holder)
+	if titleHeight > 0 then
+		create("TextLabel", {
+			BackgroundTransparency = 1,
+			Size = UDim2.new(1, 0, 0, titleHeight),
+			Font = Enum.Font.GothamSemibold,
+			Text = options.Title or "VISUALS",
+			TextSize = 10,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = self.window.library.theme.text_soft,
+		}, holder)
+	end
 
 	function selector:Select(name)
 		if not self.Buttons[name] or self.Selected == name then return end
@@ -4513,7 +4516,7 @@ function Tab:AddContextSelector(options)
 	selector.Theme = self.window.library.theme
 	for index, name in ipairs(options.Items or {}) do
 		local button = create("TextButton", {
-			Position = UDim2.fromOffset(0, 14 + (index - 1) * 26),
+			Position = UDim2.fromOffset(0, titleHeight + (index - 1) * 26),
 			Size = UDim2.new(1, 0, 0, 24),
 			BackgroundColor3 = selector.Theme.panel_soft,
 			BackgroundTransparency = 1,
