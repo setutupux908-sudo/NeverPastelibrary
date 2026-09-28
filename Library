@@ -102,6 +102,7 @@ local _icons = {
 	load = "rbxassetid://10723387265",
 	save = "rbxassetid://10734941499",
 	delete = "rbxassetid://10747362393",
+	fatality_option = "rbxassetid://14007344336",
 }
 
 local _lucide = {
@@ -162,6 +163,12 @@ local _lucide = {
 	["move"] = "rbxassetid://10723425322",
 	["maximize"] = "rbxassetid://10723424008",
 	["minimize"] = "rbxassetid://10723424318",
+	["fatality-legit"] = "rbxassetid://10734977012",
+	["fatality-rage"] = "rbxassetid://10734962068",
+	["fatality-visual"] = "rbxassetid://10723346959",
+	["fatality-misc"] = "rbxassetid://10734950309",
+	["fatality-skins"] = "rbxassetid://10734910430",
+	["fatality-world"] = "rbxassetid://10723404337",
 }
 
 local function resolve_icon(name)
@@ -7108,7 +7115,7 @@ function Section:AddToggle(options)
 			AnchorPoint = Vector2.new(1, 0.5),
 			Size = UDim2.fromOffset(14, 14),
 			BackgroundTransparency = 1,
-			Image = _lucide["cog"],
+			Image = _icons.fatality_option,
 			ImageColor3 = toggle.library.theme.text_soft,
 			AutoButtonColor = false,
 			ZIndex = 4,
