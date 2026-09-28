@@ -4249,13 +4249,8 @@ function Window:SelectTab(tab)
 		if current.icon then
 			tween(current.icon, 0.12, {
 				ImageColor3 = active and self.library.theme.accent or self.library.theme.text,
-				ImageTransparency = 0,
+				ImageTransparency = active and 0 or 0.2,
 			})
-			if current.icon_fallback then
-				tween(current.icon_fallback, 0.12, {
-					TextColor3 = active and self.library.theme.accent or self.library.theme.text,
-				})
-			end
 		elseif current.dot then
 			tween(current.dot, 0.12, { BackgroundColor3 = active and self.library.theme.accent or self.library.theme.text_soft })
 		end
@@ -4393,31 +4388,16 @@ function Window:AddTab(options)
 		tab.icon = create("ImageLabel", {
 			AnchorPoint = Vector2.new(0, 0.5),
 			Position = UDim2.new(0, 7, 0.5, 0),
-			Size = UDim2.fromOffset(16, 16),
+			Size = UDim2.fromOffset(13, 13),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Image = tab_icon_id,
 			ImageColor3 = self.library.theme.text,
-			ImageTransparency = 0,
+			ImageTransparency = 0.2,
 			ScaleType = Enum.ScaleType.Fit,
-			ZIndex = 7,
-		}, tab.button)
-		round_ui(tab.icon, 2)
-		tab.icon_fallback = create("TextLabel", {
-			AnchorPoint = Vector2.new(0, 0.5),
-			Position = UDim2.new(0, 7, 0.5, 0),
-			Size = UDim2.fromOffset(16, 16),
-			BackgroundTransparency = 1,
-			Font = Enum.Font.GothamBold,
-			Text = string.sub(name, 1, 1),
-			TextColor3 = self.library.theme.text,
-			TextSize = 13,
-			Visible = not tab.icon.IsLoaded,
 			ZIndex = 6,
 		}, tab.button)
-		connect(self.connections, tab.icon:GetPropertyChangedSignal("IsLoaded"), function()
-			tab.icon_fallback.Visible = not tab.icon.IsLoaded
-		end)
+		round_ui(tab.icon, 2)
 		tab.dot = nil
 	else
 		tab.icon = nil
@@ -4452,7 +4432,7 @@ function Window:AddTab(options)
 			tween(tab.label, 0.12, { TextColor3 = self.library.theme.text })
 			tween(tab.stroke, 0.12, { Transparency = 0.65 })
 			if tab.icon then
-				tween(tab.icon, 0.12, { ImageColor3 = self.library.theme.text, ImageTransparency = 0 })
+				tween(tab.icon, 0.12, { ImageColor3 = self.library.theme.text, ImageTransparency = 0.05 })
 			end
 		end
 	end)
@@ -4463,7 +4443,7 @@ function Window:AddTab(options)
 			tween(tab.label, 0.12, { TextColor3 = self.library.theme.text_soft })
 			tween(tab.stroke, 0.12, { Transparency = 1 })
 			if tab.icon then
-				tween(tab.icon, 0.12, { ImageColor3 = self.library.theme.text, ImageTransparency = 0 })
+				tween(tab.icon, 0.12, { ImageColor3 = self.library.theme.text, ImageTransparency = 0.2 })
 			end
 		end
 	end)
