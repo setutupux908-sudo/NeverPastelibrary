@@ -4732,8 +4732,13 @@ function Tab:AddEspPreview(options)
 		end
 		preview.HealthValue = nextHealth
 		local ratio = nextHealth / 100
-		health.Size = UDim2.fromScale(1, ratio)
-		health.Position = UDim2.fromScale(0, 1 - ratio)
+		if config.HealthBarPosition == "Top" or config.HealthBarPosition == "Bottom" then
+			health.Size = UDim2.fromScale(ratio, 1)
+			health.Position = UDim2.fromScale(0, 0)
+		else
+			health.Size = UDim2.fromScale(1, ratio)
+			health.Position = UDim2.fromScale(0, 1 - ratio)
+		end
 		if config.HealthBarType == "Dynamic" then
 			health.BackgroundColor3 = config.HealthLowColor:Lerp(config.HealthFullColor, ratio)
 		elseif config.HealthBarType == "Gradient" then
@@ -4803,6 +4808,21 @@ function EspPreview:SetConfig(config)
 	self.Glow.Visible = config.Box and config.BoxGlow
 	self.Glow.ImageColor3 = config.BoxColor
 	self.HealthBack.Visible = config.HealthBar
+	local horizontalHealth = config.HealthBarPosition == "Top" or config.HealthBarPosition == "Bottom"
+	if config.HealthBarPosition == "Right" then
+		self.HealthBack.Position = UDim2.new(1, 5, 0, -2)
+		self.HealthBack.Size = UDim2.new(0, 3, 1, 4)
+	elseif config.HealthBarPosition == "Top" then
+		self.HealthBack.Position = UDim2.fromOffset(-2, -7)
+		self.HealthBack.Size = UDim2.new(1, 4, 0, 3)
+	elseif config.HealthBarPosition == "Bottom" then
+		self.HealthBack.Position = UDim2.new(0, -2, 1, 5)
+		self.HealthBack.Size = UDim2.new(1, 4, 0, 3)
+	else
+		self.HealthBack.Position = UDim2.fromOffset(-7, -2)
+		self.HealthBack.Size = UDim2.new(0, 3, 1, 4)
+	end
+	self.HealthGradient.Rotation = horizontalHealth and 0 or 90
 	self.HealthGradient.Enabled = config.HealthBarType == "Gradient"
 	self.HealthGradient.Color = ColorSequence.new(
 		config.HealthLowColor:Lerp(config.HealthFullColor, self.HealthValue / 100),
@@ -4813,10 +4833,14 @@ function EspPreview:SetConfig(config)
 		or config.HealthBarType == "Gradient" and Color3.new(1, 1, 1)
 		or config.HealthFullColor
 	self.Name.Visible = config.Name
+	self.Name.Position = UDim2.new(0.5, 0, 0, config.HealthBar and config.HealthBarPosition == "Top" and -23 or -16)
 	self.Name.TextColor3 = config.NameColor
 	self.Weapon.Visible = config.Weapon
+	self.Weapon.Position = UDim2.new(0.5, 0, 1, config.HealthBar and config.HealthBarPosition == "Bottom" and 12 or 4)
 	self.Weapon.TextColor3 = config.WeaponColor
 	self.Distance.Visible = config.Distance
+	self.Distance.Position = UDim2.new(0.5, 0, 1,
+		(config.Weapon and 18 or 4) + (config.HealthBar and config.HealthBarPosition == "Bottom" and 8 or 0))
 	self.Distance.TextColor3 = config.DistanceColor
 	self:UpdateSkeleton()
 end
