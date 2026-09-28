@@ -4186,7 +4186,11 @@ function Window:SetVisible(state)
 		self.close_aux_panels()
 	end
 	if not state and self.current_popup then
-		self.current_popup:SetPopupVisible(false)
+		local popup = self.current_popup
+		popup:SetPopupVisible(false)
+		if popup.section and popup.section._is_toggle_settings then
+			popup.section:SetPopupVisible(false)
+		end
 	end
 	self.root.Visible = state
 end
@@ -4237,7 +4241,11 @@ function Window:SelectTab(tab)
 	end
 
 	if self.current_popup and self.current_popup.section and self.current_popup.section.tab ~= tab then
-		self.current_popup:SetPopupVisible(false)
+		local popup = self.current_popup
+		popup:SetPopupVisible(false)
+		if popup.section._is_toggle_settings then
+			popup.section:SetPopupVisible(false)
+		end
 	end
 
 	for _, current in ipairs(self.tabs) do
@@ -4485,7 +4493,13 @@ function Tab:AddContextSelector(options)
 
 	function selector:Select(name)
 		if not self.Buttons[name] or self.Selected == name then return end
-		if self.Window.current_popup then self.Window.current_popup:SetPopupVisible(false) end
+		if self.Window.current_popup then
+			local popup = self.Window.current_popup
+			popup:SetPopupVisible(false)
+			if popup.section and popup.section._is_toggle_settings then
+				popup.section:SetPopupVisible(false)
+			end
+		end
 		self.Selected = name
 		for item, row in pairs(self.Buttons) do
 			local selected = item == name
@@ -5164,6 +5178,7 @@ end
 
 function Section:AddDropdown(options)
 	options = normalize(options, "Name")
+	local settings_parent = self._is_toggle_settings and self or nil
 	local flag = options.Flag or options.Name or ("d_" .. tostring(random(1, 9999999)))
 	local values = normalize_dropdown_values(options.Values or options.Options or options.List or options.Items)
 	local placeholder = tostring(options.Placeholder or "None")
@@ -5282,7 +5297,7 @@ function Section:AddDropdown(options)
 			Size = UDim2.fromOffset(6000, 6000),
 			BackgroundTransparency = 1,
 			Text = "",
-			ZIndex = 49,
+			ZIndex = settings_parent and 61 or 49,
 			Active = true,
 		}, self.window.popup_container)
 		connect(self.window.connections, popup_overlay.MouseButton1Click, function()
@@ -5295,7 +5310,7 @@ function Section:AddDropdown(options)
 			Active = true,
 			Position = UDim2.fromOffset(0, 0),
 			Size = UDim2.fromOffset(175, 0),
-			ZIndex = 50,
+			ZIndex = settings_parent and 62 or 50,
 		}, self.window.popup_container)
 		round_ui(popup, 2)
 		popup_stroke = stroke(popup, dropdown.library.theme.line, 1, 1)
@@ -5431,12 +5446,17 @@ function Section:AddDropdown(options)
 	function dropdown:SetPopupVisible(value)
 		self.popup_open = value == true
 		if self.popup_open then
-			if self.window.current_popup and self.window.current_popup ~= self then
+			if self.window.current_popup and self.window.current_popup ~= self
+				and self.window.current_popup ~= settings_parent then
 				self.window.current_popup:SetPopupVisible(false)
 			end
+			if settings_parent then settings_parent.child_popup = self end
 			self.window.current_popup = self
 		elseif self.window.current_popup == self then
-			self.window.current_popup = nil
+			self.window.current_popup = settings_parent and settings_parent.popup_open and settings_parent or nil
+		end
+		if not self.popup_open and settings_parent and settings_parent.child_popup == self then
+			settings_parent.child_popup = nil
 		end
 
 		refresh_button_state()
