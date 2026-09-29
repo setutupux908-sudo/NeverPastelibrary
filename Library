@@ -4419,6 +4419,15 @@ function Tab:AddEspPreview(options)
 		BorderSizePixel = 0,
 	}, healthBack)
 	local healthGradient = create("UIGradient", { Rotation = 90 }, health)
+	local ammoBack = create("Frame", {
+		BackgroundColor3 = rgb(22, 22, 22),
+		BorderColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 1,
+	}, box)
+	local ammoBar = create("Frame", {
+		BorderSizePixel = 0,
+	}, ammoBack)
+	local ammoGradient = create("UIGradient", { Rotation = 90 }, ammoBar)
 
 	local function label(text, position, color)
 		return create("TextLabel", {
@@ -4435,8 +4444,16 @@ function Tab:AddEspPreview(options)
 		}, box)
 	end
 	local name = label("Player", UDim2.new(0.5, 0, 0, -16), Color3.new(1, 1, 1))
-	local weapon = label("Weapon", UDim2.new(0.5, 0, 1, 4), Color3.new(1, 1, 1))
+	local weapon = label("AK-47", UDim2.new(0.5, 0, 1, 4), Color3.new(1, 1, 1))
+	local itemIcon = create("ImageLabel", {
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 1, 18),
+		Size = UDim2.fromOffset(32, 14),
+		BackgroundTransparency = 1,
+		ScaleType = Enum.ScaleType.Fit,
+	}, box)
 	local distance = label("125 st", UDim2.new(0.5, 0, 1, 18), Color3.new(1, 1, 1))
+	local ammoText = label("18 / 90", UDim2.new(0.5, 0, 1, 32), Color3.new(1, 1, 1))
 	local skeleton = create("Frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
@@ -4458,9 +4475,11 @@ function Tab:AddEspPreview(options)
 		Box = box, Outline = outline, BoxStroke = boxStroke,
 		Fill = fill, FillGradient = fillGradient, Glow = glow,
 		HealthBack = healthBack, Health = health, HealthGradient = healthGradient,
-		Name = name, Weapon = weapon, Distance = distance,
+		AmmoBack = ammoBack, AmmoBar = ammoBar, AmmoGradient = ammoGradient,
+		Name = name, Weapon = weapon, ItemIcon = itemIcon, Distance = distance, AmmoText = ammoText,
 		Skeleton = joints, SkeletonLayer = skeleton,
 		HealthValue = 0, HealthDirection = 1,
+		AmmoValue = 18, AmmoDirection = -1,
 	}, EspPreview)
 	connect(self.window.connections, box:GetPropertyChangedSignal("AbsoluteSize"), function()
 		preview:UpdateSkeleton()
@@ -4495,6 +4514,34 @@ function Tab:AddEspPreview(options)
 			healthGradient.Color = ColorSequence.new(
 				config.HealthLowColor:Lerp(config.HealthFullColor, ratio),
 				config.HealthLowColor
+			)
+		end
+		local nextAmmo = preview.AmmoValue + dt * 8 * preview.AmmoDirection
+		if nextAmmo >= 30 then
+			nextAmmo = 30
+			preview.AmmoDirection = -1
+		elseif nextAmmo <= 0 then
+			nextAmmo = 0
+			preview.AmmoDirection = 1
+		end
+		preview.AmmoValue = nextAmmo
+		local ammoRatio = nextAmmo / 30
+		ammoText.Text = tostring(floor(nextAmmo + 0.5)) .. " / 90"
+		if config.AmmoPosition == "Top" or config.AmmoPosition == "Bottom" then
+			ammoBar.Size = UDim2.fromScale(ammoRatio, 1)
+			ammoBar.Position = UDim2.fromScale(0, 0)
+		else
+			ammoBar.Size = UDim2.fromScale(1, ammoRatio)
+			ammoBar.Position = UDim2.fromScale(0, 1 - ammoRatio)
+		end
+		if config.AmmoBarType == "Dynamic" then
+			local color = config.AmmoLowColor:Lerp(config.AmmoFullColor, ammoRatio)
+			ammoBar.BackgroundColor3 = color
+			ammoText.TextColor3 = color
+		elseif config.AmmoBarType == "Gradient" then
+			ammoGradient.Color = ColorSequence.new(
+				config.AmmoLowColor:Lerp(config.AmmoFullColor, ammoRatio),
+				config.AmmoLowColor
 			)
 		end
 	end)
@@ -4543,6 +4590,9 @@ function EspPreview:SetConfig(config)
 		self:UpdateSkeleton()
 		return
 	end
+	local bottomRows = (config.Weapon and 1 or 0) + (config.ItemIcon and 1 or 0)
+		+ (config.Distance and 1 or 0) + (config.Ammo and config.AmmoNumbers and 1 or 0)
+	self.Box.Size = UDim2.new(0.56, 0, 0.76, -math.max(0, bottomRows - 1) * 16)
 	self.Outline.Transparency = config.Box and 0 or 1
 	self.Outline.Thickness = (config.BoxThickness or 1) + 2
 	self.BoxStroke.Transparency = config.Box and 0 or 1
@@ -4582,16 +4632,67 @@ function EspPreview:SetConfig(config)
 		and config.HealthLowColor:Lerp(config.HealthFullColor, self.HealthValue / 100)
 		or config.HealthBarType == "Gradient" and Color3.new(1, 1, 1)
 		or config.HealthFullColor
+	self.AmmoBack.Visible = config.Ammo == true and config.AmmoBar == true
+	local ammoOffset = config.HealthBar and config.AmmoPosition == config.HealthBarPosition and 13 or 7
+	if config.AmmoPosition == "Right" then
+		self.AmmoBack.Position = UDim2.new(1, ammoOffset - 2, 0, -2)
+		self.AmmoBack.Size = UDim2.new(0, 3, 1, 4)
+	elseif config.AmmoPosition == "Top" then
+		self.AmmoBack.Position = UDim2.fromOffset(-2, -ammoOffset)
+		self.AmmoBack.Size = UDim2.new(1, 4, 0, 3)
+	elseif config.AmmoPosition == "Bottom" then
+		self.AmmoBack.Position = UDim2.new(0, -2, 1, ammoOffset - 2)
+		self.AmmoBack.Size = UDim2.new(1, 4, 0, 3)
+	else
+		self.AmmoBack.Position = UDim2.fromOffset(-ammoOffset, -2)
+		self.AmmoBack.Size = UDim2.new(0, 3, 1, 4)
+	end
+	self.AmmoGradient.Rotation = (config.AmmoPosition == "Top" or config.AmmoPosition == "Bottom") and 0 or 90
+	self.AmmoGradient.Enabled = config.AmmoBarType == "Gradient"
+	local ammoRatio = self.AmmoValue / 30
+	local ammoFullColor = config.AmmoFullColor or Color3.new(1, 1, 1)
+	local ammoLowColor = config.AmmoLowColor or ammoFullColor
+	self.AmmoGradient.Color = ColorSequence.new(
+		ammoLowColor:Lerp(ammoFullColor, ammoRatio),
+		ammoLowColor
+	)
+	self.AmmoBar.BackgroundColor3 = config.AmmoBarType == "Dynamic"
+		and ammoLowColor:Lerp(ammoFullColor, ammoRatio)
+		or config.AmmoBarType == "Gradient" and Color3.new(1, 1, 1)
+		or ammoFullColor
 	self.Name.Visible = config.Name
-	self.Name.Position = UDim2.new(0.5, 0, 0, config.HealthBar and config.HealthBarPosition == "Top" and -23 or -16)
+	local topBars = (config.HealthBar and config.HealthBarPosition == "Top" and 1 or 0)
+		+ (config.Ammo and config.AmmoBar and config.AmmoPosition == "Top" and 1 or 0)
+	self.Name.Position = UDim2.new(0.5, 0, 0, -16 - topBars * 7)
 	self.Name.TextColor3 = config.NameColor
 	self.Weapon.Visible = config.Weapon
-	self.Weapon.Position = UDim2.new(0.5, 0, 1, config.HealthBar and config.HealthBarPosition == "Bottom" and 12 or 4)
 	self.Weapon.TextColor3 = config.WeaponColor
+	self.ItemIcon.Image = config.PreviewItemIcon or ""
+	self.ItemIcon.ImageColor3 = config.ItemIconColor or Color3.new(1, 1, 1)
+	self.ItemIcon.Visible = config.ItemIcon == true and self.ItemIcon.Image ~= ""
 	self.Distance.Visible = config.Distance
-	self.Distance.Position = UDim2.new(0.5, 0, 1,
-		(config.Weapon and 18 or 4) + (config.HealthBar and config.HealthBarPosition == "Bottom" and 8 or 0))
 	self.Distance.TextColor3 = config.DistanceColor
+	self.AmmoText.Visible = config.Ammo == true and config.AmmoNumbers == true
+	self.AmmoText.TextColor3 = config.AmmoBarType == "Dynamic"
+		and ammoLowColor:Lerp(ammoFullColor, ammoRatio) or ammoFullColor
+	local bottomBars = (config.HealthBar and config.HealthBarPosition == "Bottom" and 1 or 0)
+		+ (config.Ammo and config.AmmoBar and config.AmmoPosition == "Bottom" and 1 or 0)
+	local labelY = 4 + bottomBars * 8
+	if config.Weapon then
+		self.Weapon.Position = UDim2.new(0.5, 0, 1, labelY)
+		labelY += 14
+	end
+	if self.ItemIcon.Visible then
+		self.ItemIcon.Position = UDim2.new(0.5, 0, 1, labelY)
+		labelY += 16
+	end
+	if config.Distance then
+		self.Distance.Position = UDim2.new(0.5, 0, 1, labelY)
+		labelY += 14
+	end
+	if self.AmmoText.Visible then
+		self.AmmoText.Position = UDim2.new(0.5, 0, 1, labelY)
+	end
 	self:UpdateSkeleton()
 end
 
