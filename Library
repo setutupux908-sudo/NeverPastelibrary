@@ -4405,6 +4405,15 @@ function Tab:AddEspPreview(options)
 		ScaleType = Enum.ScaleType.Slice,
 		SliceCenter = Rect.new(21, 21, 79, 79),
 	}, box)
+	local styleLines = {}
+	for _ = 1, 12 do
+		insert(styleLines, create("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BorderSizePixel = 0,
+			Visible = false,
+			ZIndex = 6,
+		}, box))
+	end
 	local healthBack = create("Frame", {
 		Position = UDim2.fromOffset(-7, -2),
 		Size = UDim2.new(0, 3, 1, 4),
@@ -4480,7 +4489,7 @@ function Tab:AddEspPreview(options)
 	end
 	local preview = setmetatable({
 		Section = section, Display = display,
-		Box = box, Outline = outline, BoxStroke = boxStroke,
+		Box = box, Outline = outline, BoxStroke = boxStroke, StyleLines = styleLines,
 		Fill = fill, FillGradient = fillGradient, Glow = glow,
 		HealthBack = healthBack, Health = health, HealthGradient = healthGradient,
 		AmmoBack = ammoBack, AmmoBar = ammoBar, AmmoGradient = ammoGradient,
@@ -4491,6 +4500,7 @@ function Tab:AddEspPreview(options)
 	}, EspPreview)
 	connect(self.window.connections, box:GetPropertyChangedSignal("AbsoluteSize"), function()
 		preview:UpdateSkeleton()
+		preview:UpdateBoxStyle()
 	end)
 	connect(self.window.connections, run.RenderStepped, function(dt)
 		local config = preview.Config
@@ -4600,29 +4610,70 @@ function EspPreview:UpdateSkeleton()
 	end
 end
 
+function EspPreview:UpdateBoxStyle()
+	local config = self.Config
+	local size = self.Box.AbsoluteSize
+	local segments = {}
+	if config and config.Box and config.BoxStyle == "Corner" then
+		local w, h = size.X, size.Y
+		local cw, ch = w * 0.23, h * 0.18
+		segments = {
+			{ 0, 0, cw, 0 }, { 0, 0, 0, ch },
+			{ w - cw, 0, w, 0 }, { w, 0, w, ch },
+			{ 0, h, cw, h }, { 0, h - ch, 0, h },
+			{ w - cw, h, w, h }, { w, h - ch, w, h },
+		}
+	elseif config and config.Box and config.BoxStyle == "3D" then
+		local w, h = size.X, size.Y
+		local dx, dy = w * 0.16, -h * 0.07
+		segments = {
+			{ 0, 0, w, 0 }, { w, 0, w, h }, { w, h, 0, h }, { 0, h, 0, 0 },
+			{ dx, dy, w + dx, dy }, { w + dx, dy, w + dx, h + dy },
+			{ w + dx, h + dy, dx, h + dy }, { dx, h + dy, dx, dy },
+			{ 0, 0, dx, dy }, { w, 0, w + dx, dy },
+			{ w, h, w + dx, h + dy }, { 0, h, dx, h + dy },
+		}
+	end
+	for index, line in ipairs(self.StyleLines) do
+		local segment = segments[index]
+		line.Visible = segment ~= nil and size.X > 0 and size.Y > 0
+		if segment then
+			local first = Vector2.new(segment[1], segment[2])
+			local second = Vector2.new(segment[3], segment[4])
+			local delta = second - first
+			line.Position = UDim2.fromOffset((first.X + second.X) * 0.5, (first.Y + second.Y) * 0.5)
+			line.Size = UDim2.fromOffset(delta.Magnitude, config.BoxThickness or 1)
+			line.Rotation = math.deg(math.atan2(delta.Y, delta.X))
+			line.BackgroundColor3 = config.BoxColor
+		end
+	end
+end
+
 function EspPreview:SetConfig(config)
 	self.Config = config
 	self.Box.Visible = config ~= nil
 	if not config then
 		self:UpdateSkeleton()
+		self:UpdateBoxStyle()
 		return
 	end
 	local bottomRows = (config.Weapon and 1 or 0) + (config.ItemIcon and 1 or 0)
 		+ (config.Distance and 1 or 0) + (config.Ammo and config.AmmoNumbers and 1 or 0)
 	self.Box.Size = UDim2.new(0.56, 0, 0.76, -math.max(0, bottomRows - 1) * 16)
-	self.Outline.Transparency = config.Box and 0 or 1
+	local classicBox = config.BoxStyle == "Classic"
+	self.Outline.Transparency = config.Box and classicBox and 0 or 1
 	self.Outline.Thickness = (config.BoxThickness or 1) + 2
-	self.BoxStroke.Transparency = config.Box and 0 or 1
+	self.BoxStroke.Transparency = config.Box and classicBox and 0 or 1
 	self.BoxStroke.Thickness = config.BoxThickness or 1
 	self.BoxStroke.Color = config.BoxColor
-	self.Fill.Visible = config.Box and config.BoxFill
+	self.Fill.Visible = config.Box and config.BoxFill and config.BoxStyle ~= "3D"
 	self.FillGradient.Color = ColorSequence.new(config.FillColor1, config.FillColor2)
 	self.FillGradient.Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, config.FillTransparency1),
 		NumberSequenceKeypoint.new(1, config.FillTransparency2),
 	})
 	if not config.BoxFillSpin then self.FillGradient.Rotation = -90 end
-	self.Glow.Visible = config.Box and config.BoxGlow
+	self.Glow.Visible = config.Box and config.BoxGlow and classicBox
 	self.Glow.ImageColor3 = config.BoxColor
 	self.HealthBack.Visible = config.HealthBar
 	local horizontalHealth = config.HealthBarPosition == "Top" or config.HealthBarPosition == "Bottom"
@@ -4711,6 +4762,7 @@ function EspPreview:SetConfig(config)
 		self.AmmoText.Position = UDim2.new(0.5, 0, 1, labelY)
 	end
 	self:UpdateSkeleton()
+	self:UpdateBoxStyle()
 end
 
 function Section:_row(height)
