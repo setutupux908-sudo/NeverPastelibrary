@@ -3177,10 +3177,14 @@ function Library:CreateWindow(options)
 		end
 	end)
 
-	connect(window.connections, run.RenderStepped, function(dt)
+	local function render_window(dt)
 		for _, hook in ipairs(window._renderstep_hooks) do
 			hook(dt)
 		end
+	end
+	connect(window.connections, run.RenderStepped, function(dt)
+		local ok, err = with_gui_identity(render_window, dt)
+		if not ok then error(err, 0) end
 	end)
 
 	table.insert(self.windows, window)
@@ -4484,7 +4488,7 @@ function Tab:AddEspPreview(options)
 	connect(self.window.connections, box:GetPropertyChangedSignal("AbsoluteSize"), function()
 		preview:UpdateSkeleton()
 	end)
-	connect(self.window.connections, run.RenderStepped, function(dt)
+	local function render_preview(dt)
 		local config = preview.Config
 		if self.window.selected ~= self or not self.window.root.Visible
 			or not section.holder.Visible or not config then return end
@@ -4544,6 +4548,10 @@ function Tab:AddEspPreview(options)
 				config.AmmoLowColor
 			)
 		end
+	end
+	connect(self.window.connections, run.RenderStepped, function(dt)
+		local ok, err = with_gui_identity(render_preview, dt)
+		if not ok then error(err, 0) end
 	end)
 	preview:SetConfig(options.Config)
 	return preview
