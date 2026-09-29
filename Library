@@ -4502,7 +4502,7 @@ function Tab:AddEspPreview(options)
 	local preview = setmetatable({
 		Section = section, Display = display,
 		Box = box, Outline = outline, BoxStroke = boxStroke,
-		StyleLines = styleLines, StyleGlowLines = styleGlowLines,
+		StyleLines = styleLines, StyleGlowLines = styleGlowLines, Corners = {},
 		Fill = fill, FillGradient = fillGradient, Glow = glow,
 		HealthBack = healthBack, Health = health, HealthGradient = healthGradient,
 		AmmoBack = ammoBack, AmmoBar = ammoBar, AmmoGradient = ammoGradient,
@@ -4628,14 +4628,49 @@ function EspPreview:UpdateBoxStyle()
 	local size = self.Box.AbsoluteSize
 	local segments = {}
 	if config and config.Box and config.BoxStyle == "Corner" then
-		local w, h = size.X, size.Y
-		local cw, ch = w * 0.23, h * 0.18
-		segments = {
-			{ 0, 0, cw, 0 }, { 0, 0, 0, ch },
-			{ w - cw, 0, w, 0 }, { w, 0, w, ch },
-			{ 0, h, cw, h }, { 0, h - ch, 0, h },
-			{ w - cw, h, w, h }, { w, h - ch, w, h },
-		}
+		local w, h = math.round(size.X), math.round(size.Y)
+		local cw = math.min(math.max(6, math.round(w * 0.23)), math.floor(w * 0.5))
+		local ch = math.min(math.max(8, math.round(h * 0.18)), math.floor(h * 0.5))
+		local thickness = math.min(config.BoxThickness or 1, cw, ch)
+		for index = 1, 4 do
+			local corner = self.Corners[index]
+			if not corner then
+				local holder = create("Frame", {
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					ZIndex = 6,
+				}, self.Box)
+				corner = {
+					Root = holder,
+					Horizontal = create("Frame", { BorderSizePixel = 0, ZIndex = 6 }, holder),
+					Vertical = create("Frame", { BorderSizePixel = 0, ZIndex = 6 }, holder),
+				}
+				self.Corners[index] = corner
+			end
+			local right = index % 2 == 0
+			local bottom = index > 2
+			corner.Root.Position = UDim2.fromOffset(right and w - cw or 0, bottom and h - ch or 0)
+			corner.Root.Size = UDim2.fromOffset(cw, ch)
+			corner.Root.Visible = size.X > 0 and size.Y > 0
+			corner.Horizontal.Position = UDim2.fromOffset(0, bottom and ch - thickness or 0)
+			corner.Horizontal.Size = UDim2.fromOffset(cw, thickness)
+			corner.Vertical.Position = UDim2.fromOffset(right and cw - thickness or 0, 0)
+			corner.Vertical.Size = UDim2.fromOffset(thickness, ch)
+			corner.Horizontal.BackgroundColor3 = config.BoxColor
+			corner.Vertical.BackgroundColor3 = config.BoxColor
+			for part = 1, 2 do
+				local glowLine = self.StyleGlowLines[(index - 1) * 2 + part]
+				local horizontal = part == 1
+				glowLine.Position = UDim2.fromOffset(
+					(right and w - cw or 0) + (horizontal and cw * 0.5 or (right and cw - thickness * 0.5 or thickness * 0.5)),
+					(bottom and h - ch or 0) + (horizontal and (bottom and ch - thickness * 0.5 or thickness * 0.5) or ch * 0.5))
+				glowLine.Size = UDim2.fromOffset((horizontal and cw or thickness) + 47,
+					(horizontal and thickness or ch) + 47)
+				glowLine.Rotation = 0
+				glowLine.ImageColor3 = config.BoxColor
+				glowLine.Visible = corner.Root.Visible and config.BoxGlow
+			end
+		end
 	elseif config and config.Box and config.BoxStyle == "3D" then
 		local w, h = size.X, size.Y
 		local dx, dy = w * 0.16, -h * 0.07
@@ -4647,12 +4682,17 @@ function EspPreview:UpdateBoxStyle()
 			{ w, h, w + dx, h + dy }, { 0, h, dx, h + dy },
 		}
 	end
+	if not (config and config.Box and config.BoxStyle == "Corner") then
+		for _, corner in ipairs(self.Corners) do
+			corner.Root.Visible = false
+		end
+	end
 	for index, line in ipairs(self.StyleLines) do
 		local segment = segments[index]
 		line.Visible = segment ~= nil and size.X > 0 and size.Y > 0
 		local glowLine = self.StyleGlowLines[index]
-		if glowLine then
-			glowLine.Visible = line.Visible and config.BoxStyle == "Corner" and config.BoxGlow
+		if glowLine and not (config and config.Box and config.BoxStyle == "Corner") then
+			glowLine.Visible = false
 		end
 		if segment then
 			local first = Vector2.new(segment[1], segment[2])
@@ -4662,12 +4702,6 @@ function EspPreview:UpdateBoxStyle()
 			line.Size = UDim2.fromOffset(delta.Magnitude, config.BoxThickness or 1)
 			line.Rotation = math.deg(math.atan2(delta.Y, delta.X))
 			line.BackgroundColor3 = config.BoxColor
-			if glowLine and glowLine.Visible then
-				glowLine.Position = line.Position
-				glowLine.Size = UDim2.fromOffset(delta.Magnitude + 47, (config.BoxThickness or 1) + 47)
-				glowLine.Rotation = line.Rotation
-				glowLine.ImageColor3 = config.BoxColor
-			end
 		end
 	end
 end
@@ -4690,6 +4724,13 @@ function EspPreview:SetConfig(config)
 	self.BoxStroke.Thickness = config.BoxThickness or 1
 	self.BoxStroke.Color = config.BoxColor
 	self.Fill.Visible = config.Box and config.BoxFill and config.BoxStyle ~= "3D"
+	if config.BoxStyle == "Corner" then
+		self.Fill.Position = UDim2.fromOffset(0, 0)
+		self.Fill.Size = UDim2.fromScale(1, 1)
+	else
+		self.Fill.Position = UDim2.fromOffset(1, 1)
+		self.Fill.Size = UDim2.new(1, -2, 1, -2)
+	end
 	self.FillGradient.Color = ColorSequence.new(config.FillColor1, config.FillColor2)
 	self.FillGradient.Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, config.FillTransparency1),
