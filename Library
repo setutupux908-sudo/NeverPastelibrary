@@ -4405,14 +4405,26 @@ function Tab:AddEspPreview(options)
 		ScaleType = Enum.ScaleType.Slice,
 		SliceCenter = Rect.new(21, 21, 79, 79),
 	}, box)
-	local styleLines = {}
-	for _ = 1, 12 do
+	local styleLines, styleGlowLines = {}, {}
+	for index = 1, 12 do
 		insert(styleLines, create("Frame", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BorderSizePixel = 0,
 			Visible = false,
 			ZIndex = 6,
 		}, box))
+		if index <= 8 then
+			insert(styleGlowLines, create("ImageLabel", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundTransparency = 1,
+				Image = "rbxassetid://18245826428",
+				ImageTransparency = 0.8,
+				ScaleType = Enum.ScaleType.Slice,
+				SliceCenter = Rect.new(21, 21, 79, 79),
+				Visible = false,
+				ZIndex = 5,
+			}, box))
+		end
 	end
 	local healthBack = create("Frame", {
 		Position = UDim2.fromOffset(-7, -2),
@@ -4489,7 +4501,8 @@ function Tab:AddEspPreview(options)
 	end
 	local preview = setmetatable({
 		Section = section, Display = display,
-		Box = box, Outline = outline, BoxStroke = boxStroke, StyleLines = styleLines,
+		Box = box, Outline = outline, BoxStroke = boxStroke,
+		StyleLines = styleLines, StyleGlowLines = styleGlowLines,
 		Fill = fill, FillGradient = fillGradient, Glow = glow,
 		HealthBack = healthBack, Health = health, HealthGradient = healthGradient,
 		AmmoBack = ammoBack, AmmoBar = ammoBar, AmmoGradient = ammoGradient,
@@ -4637,6 +4650,10 @@ function EspPreview:UpdateBoxStyle()
 	for index, line in ipairs(self.StyleLines) do
 		local segment = segments[index]
 		line.Visible = segment ~= nil and size.X > 0 and size.Y > 0
+		local glowLine = self.StyleGlowLines[index]
+		if glowLine then
+			glowLine.Visible = line.Visible and config.BoxStyle == "Corner" and config.BoxGlow
+		end
 		if segment then
 			local first = Vector2.new(segment[1], segment[2])
 			local second = Vector2.new(segment[3], segment[4])
@@ -4645,6 +4662,12 @@ function EspPreview:UpdateBoxStyle()
 			line.Size = UDim2.fromOffset(delta.Magnitude, config.BoxThickness or 1)
 			line.Rotation = math.deg(math.atan2(delta.Y, delta.X))
 			line.BackgroundColor3 = config.BoxColor
+			if glowLine and glowLine.Visible then
+				glowLine.Position = line.Position
+				glowLine.Size = UDim2.fromOffset(delta.Magnitude + 47, (config.BoxThickness or 1) + 47)
+				glowLine.Rotation = line.Rotation
+				glowLine.ImageColor3 = config.BoxColor
+			end
 		end
 	end
 end
