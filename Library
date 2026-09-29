@@ -4519,8 +4519,8 @@ function Tab:AddEspPreview(options)
 		local config = preview.Config
 		if self.window.selected ~= self or not self.window.root.Visible
 			or not section.holder.Visible or not config then return end
-		if config.BoxFill and config.BoxFillSpin then
-			fillGradient.Rotation = (fillGradient.Rotation + dt * 90) % 360
+		if fill.Visible and config.BoxFillSpin then
+			fillGradient.Rotation = (os.clock() * 180) % 360
 		end
 		local nextHealth = preview.HealthValue + dt * 40 * preview.HealthDirection
 		if nextHealth >= 100 then
@@ -4695,7 +4695,7 @@ function EspPreview:SetConfig(config)
 		NumberSequenceKeypoint.new(0, config.FillTransparency1),
 		NumberSequenceKeypoint.new(1, config.FillTransparency2),
 	})
-	if not config.BoxFillSpin then self.FillGradient.Rotation = -90 end
+	if not (self.Fill.Visible and config.BoxFillSpin) then self.FillGradient.Rotation = -90 end
 	self.Glow.Visible = config.Box and config.BoxGlow and classicBox
 	self.Glow.ImageColor3 = config.BoxColor
 	self.HealthBack.Visible = config.HealthBar
