@@ -4560,7 +4560,7 @@ end
 function EspPreview:UpdateSkeleton()
 	local config = self.Config
 	local size = self.Box.AbsoluteSize
-	local showHead = config and config.Skeleton and config.SkeletonDisplay ~= "Skeleton"
+	local showHead = config and config.Skeleton and config.SkeletonHead
 	self.HeadOutline.Visible = showHead and size.X > 0 and size.Y > 0 or false
 	if self.HeadOutline.Visible then
 		local diameter = size.Y * 0.13
@@ -4584,7 +4584,7 @@ function EspPreview:UpdateSkeleton()
 	}
 	for index, line in ipairs(self.Skeleton) do
 		local pair = joints[index]
-		local visible = config and config.Skeleton and config.SkeletonDisplay ~= "Head"
+		local visible = config and config.Skeleton and config.SkeletonJoints
 			and size.X > 0 and size.Y > 0
 		line.Visible = visible and true or false
 		if visible then
