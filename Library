@@ -102,6 +102,7 @@ local _icons = {
 	load = "rbxassetid://10723387265",
 	save = "rbxassetid://10734941499",
 	delete = "rbxassetid://10747362393",
+	fatality_option = "rbxassetid://14007344336",
 }
 
 local _lucide = {
@@ -162,6 +163,12 @@ local _lucide = {
 	["move"] = "rbxassetid://10723425322",
 	["maximize"] = "rbxassetid://10723424008",
 	["minimize"] = "rbxassetid://10723424318",
+	["fatality-legit"] = "rbxassetid://10734977012",
+	["fatality-rage"] = "rbxassetid://10734962068",
+	["fatality-visual"] = "rbxassetid://10723346959",
+	["fatality-misc"] = "rbxassetid://10734950309",
+	["fatality-skins"] = "rbxassetid://10734910430",
+	["fatality-world"] = "rbxassetid://10723404337",
 }
 
 local function resolve_icon(name)
@@ -1770,7 +1777,7 @@ function Library:CreateWindow(options)
 	}, info_panel)
 
 	-- Forward declarations for watermark settings
-	local wm_style = "Blue"
+	local wm_style = "Purple"
 	local wm_apply_style
 
 	-- ========== SETTINGS PANEL ==========
@@ -1962,7 +1969,7 @@ function Library:CreateWindow(options)
 		BackgroundColor3 = self.theme.panel,
 		BorderSizePixel = 0,
 		Font = Enum.Font.GothamMedium,
-		Text = "Blue",
+		Text = "Purple",
 		TextSize = 10,
 		TextColor3 = self.theme.text_soft,
 		AutoButtonColor = false,
@@ -1971,7 +1978,7 @@ function Library:CreateWindow(options)
 	round_ui(wm_style_btn, 3)
 	stroke(wm_style_btn, self.theme.line, 0.35, 1)
 
-	local wm_styles = { "Blue", "Purple", "Black" }
+	local wm_styles = { "Purple", "Blue", "Black" }
 	local wm_style_index = 1
 	connect(window.connections, wm_style_btn.MouseButton1Click, function()
 		wm_style_index = wm_style_index % #wm_styles + 1
@@ -3186,9 +3193,6 @@ function Library:CreateWindow(options)
 	end
 
 	-- ========== WATERMARK OVERLAY ==========
-	-- "Tactical" watermark (user-supplied design, adapted): emblem "O",
-	-- nickname + FPS + ping, animated neon runners and wave lines.
-	-- Styles: Black / Blue (default) / Purple, switched from Settings.
 	local wm_gui = create("ScreenGui", {
 		Name = gui_name .. "_Watermark",
 		IgnoreGuiInset = true,
@@ -3198,257 +3202,96 @@ function Library:CreateWindow(options)
 	}, get_hui)
 
 	local WM_STYLES = {
-		Blue = {
-			Accent = rgb(89, 215, 255),
-			Light = rgb(206, 240, 255),
-		},
-		Purple = {
-			Accent = rgb(183, 117, 255),
-			Light = rgb(232, 207, 255),
-		},
-		Black = {
-			Accent = rgb(120, 126, 134),
-			Light = rgb(214, 218, 224),
-		},
+		Purple = { Primary = rgb(159, 91, 246), Light = rgb(220, 188, 255), Accent = self.theme.accent },
+		Blue = { Primary = rgb(89, 169, 255), Light = rgb(195, 224, 255), Accent = rgb(89, 169, 255) },
+		Black = { Primary = rgb(190, 190, 190), Light = rgb(245, 245, 245), Accent = self.theme.text_soft },
 	}
 
-	-- Top-right anchored: scale-based position sticks to the corner on ANY
-	-- resolution / window resize; UIScale below multiplies visual size 1.5x
-	-- around the anchor point, so the offset stays resolution-correct
 	local wm_root = create("Frame", {
 		Active = true,
 		AnchorPoint = Vector2.new(1, 0),
 		BackgroundTransparency = 1,
 		Position = UDim2.new(1, -18, 0, 18),
-		Size = UDim2.fromOffset(164, 30),
+		Size = UDim2.fromOffset(244, 32),
 	}, wm_gui)
-
-	create("UIScale", { Scale = 1.5 }, wm_root)
-
-	local wm_shadow = create("Frame", {
-		BackgroundColor3 = rgb(0, 0, 0),
-		BackgroundTransparency = 0.58,
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(0, 2),
-		Size = UDim2.fromOffset(164, 26),
-		ZIndex = 0,
-	}, wm_root)
-	round_ui(wm_shadow, 2)
 
 	local wm_panel = create("Frame", {
 		Active = true,
-		BackgroundColor3 = rgb(24, 29, 35),
-		BackgroundTransparency = 0.12,
+		BackgroundColor3 = self.theme.bar,
 		BorderSizePixel = 0,
-		ClipsDescendants = true,
-		Size = UDim2.fromOffset(164, 26),
-		ZIndex = 1,
+		Size = UDim2.fromScale(1, 1),
 	}, wm_root)
-	round_ui(wm_panel, 2)
+	round_ui(wm_panel, 5)
+	stroke(wm_panel, self.theme.line, 0, 1)
 
-	create("UIGradient", {
-		Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, rgb(36, 43, 51)),
-			ColorSequenceKeypoint.new(0.48, rgb(25, 31, 38)),
-			ColorSequenceKeypoint.new(1, rgb(18, 22, 27)),
-		}),
-		Rotation = 90,
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.02),
-			NumberSequenceKeypoint.new(1, 0.12),
-		}),
-	}, wm_panel)
-
-	local wm_panel_stroke = create("UIStroke", {
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-		Thickness = 1,
-		Transparency = 0.08,
-	}, wm_panel)
-
-	local wm_top_runner = create("Frame", {
-		BackgroundTransparency = 0.04,
+	local wm_accent = create("Frame", {
+		Position = UDim2.fromOffset(0, 6),
+		Size = UDim2.fromOffset(2, 20),
 		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(-32, 0),
-		Size = UDim2.fromOffset(32, 1),
-		ZIndex = 4,
 	}, wm_panel)
 
-	local wm_bottom_runner = create("Frame", {
-		BackgroundTransparency = 0.04,
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(164, 25),
-		Size = UDim2.fromOffset(32, 1),
-		ZIndex = 4,
+	local wm_brand = create("TextLabel", {
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(10, 0),
+		Size = UDim2.fromOffset(92, 32),
+		Font = Enum.Font.GothamBlack,
+		Text = options.Title or "OXYcodone",
+		TextColor3 = Color3.new(1, 1, 1),
+		TextSize = 13,
+		TextXAlignment = Enum.TextXAlignment.Left,
 	}, wm_panel)
-
-	local wm_runner_transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 1),
-		NumberSequenceKeypoint.new(0.35, 0.45),
-		NumberSequenceKeypoint.new(0.5, 0),
-		NumberSequenceKeypoint.new(0.65, 0.45),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	create("UIGradient", { Transparency = wm_runner_transparency }, wm_top_runner)
-	create("UIGradient", { Transparency = wm_runner_transparency }, wm_bottom_runner)
-
-	local wm_left_neon = create("Frame", {
-		BackgroundTransparency = 0.08,
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(0, 2),
-		Size = UDim2.fromOffset(1, 22),
-		ZIndex = 4,
-	}, wm_panel)
-
-	local wm_right_neon = create("Frame", {
-		BackgroundTransparency = 0.08,
-		BorderSizePixel = 0,
-		Position = UDim2.new(1, -1, 0, 2),
-		Size = UDim2.fromOffset(1, 22),
-		ZIndex = 4,
-	}, wm_panel)
-
-	local wm_top_neon = create("Frame", {
-		BackgroundTransparency = 0.48,
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(2, 1),
-		Size = UDim2.fromOffset(160, 1),
-		ZIndex = 3,
-	}, wm_panel)
-
-	local wm_bottom_neon = create("Frame", {
-		BackgroundTransparency = 0.58,
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(2, 24),
-		Size = UDim2.fromOffset(160, 1),
-		ZIndex = 3,
-	}, wm_panel)
-
-	local wm_wave_dots = {}
-	for wave_index = 1, 3 do
-		local wave = {}
-		for point_index = 0, 54 do
-			wave[#wave + 1] = create("Frame", {
-				BackgroundTransparency = wave_index % 2 == 0 and 0.9 or 0.84,
-				BorderSizePixel = 0,
-				Position = UDim2.fromOffset(point_index * 3, 0),
-				Size = UDim2.fromOffset(4, 1),
-				ZIndex = 2,
-			}, wm_panel)
-		end
-		wm_wave_dots[wave_index] = wave
-	end
+	local wm_brand_gradient = create("UIGradient", {}, wm_brand)
 
 	create("Frame", {
-		BackgroundColor3 = rgb(231, 241, 250),
-		BackgroundTransparency = 0.89,
+		Position = UDim2.fromOffset(105, 8),
+		Size = UDim2.fromOffset(1, 16),
+		BackgroundColor3 = self.theme.line,
 		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(1, 1),
-		Size = UDim2.new(1, -2, 0, 1),
-		ZIndex = 3,
-	}, wm_panel)
-
-	local wm_emblem_glow = create("TextLabel", {
-		BackgroundTransparency = 1,
-		Font = Enum.Font.GothamBold,
-		Position = UDim2.fromOffset(2, 0),
-		Rotation = -6,
-		Size = UDim2.fromOffset(34, 26),
-		Text = "Oxy",
-		TextSize = 16,
-		TextTransparency = 0.62,
-		ZIndex = 4,
-	}, wm_panel)
-
-	local wm_emblem = create("TextLabel", {
-		BackgroundTransparency = 1,
-		Font = Enum.Font.GothamBold,
-		Position = UDim2.fromOffset(2, 0),
-		Rotation = -6,
-		Size = UDim2.fromOffset(34, 26),
-		Text = "Oxy",
-		TextSize = 14,
-		ZIndex = 5,
 	}, wm_panel)
 
 	create("TextLabel", {
 		BackgroundTransparency = 1,
-		Font = Enum.Font.GothamBold,
-		Position = UDim2.fromOffset(42, 0),
-		Size = UDim2.fromOffset(48, 26),
+		Position = UDim2.fromOffset(112, 0),
+		Size = UDim2.fromOffset(54, 32),
+		Font = Enum.Font.GothamMedium,
 		Text = tostring(lp and lp.DisplayName or "Player"),
-		TextColor3 = rgb(243, 241, 245),
-		TextSize = 9,
+		TextColor3 = self.theme.text_soft,
+		TextSize = 10,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex = 5,
 	}, wm_panel)
 
 	local wm_fps_metric = create("TextLabel", {
 		BackgroundTransparency = 1,
-		Font = Enum.Font.GothamBold,
-		Position = UDim2.fromOffset(94, 0),
+		Position = UDim2.fromOffset(169, 0),
 		RichText = true,
-		Size = UDim2.fromOffset(34, 26),
-		Text = '<b>--</b> <font size="7" color="#B7C0CB">fps</font>',
-		TextColor3 = rgb(243, 241, 245),
-		TextSize = 9,
+		Size = UDim2.fromOffset(36, 32),
+		Font = Enum.Font.GothamMedium,
+		Text = '-- <font color="#9A9A9A">fps</font>',
+		TextColor3 = self.theme.text,
+		TextSize = 10,
 		TextXAlignment = Enum.TextXAlignment.Center,
-		ZIndex = 5,
 	}, wm_panel)
 
 	local wm_ping_metric = create("TextLabel", {
 		BackgroundTransparency = 1,
-		Font = Enum.Font.GothamBold,
-		Position = UDim2.fromOffset(128, 0),
+		Position = UDim2.fromOffset(207, 0),
 		RichText = true,
-		Size = UDim2.fromOffset(34, 26),
-		Text = '<b>--</b> <font size="7" color="#B7C0CB">ms</font>',
-		TextColor3 = rgb(243, 241, 245),
-		TextSize = 9,
+		Size = UDim2.fromOffset(34, 32),
+		Font = Enum.Font.GothamMedium,
+		Text = '-- <font color="#9A9A9A">ms</font>',
+		TextColor3 = self.theme.text,
+		TextSize = 10,
 		TextXAlignment = Enum.TextXAlignment.Center,
-		ZIndex = 5,
 	}, wm_panel)
 
 	wm_apply_style = function(style_name)
-		local style = WM_STYLES[style_name] or WM_STYLES.Blue
-		wm_panel_stroke.Color = style.Accent
-		wm_top_runner.BackgroundColor3 = style.Light
-		wm_bottom_runner.BackgroundColor3 = style.Light
-		wm_left_neon.BackgroundColor3 = style.Light
-		wm_right_neon.BackgroundColor3 = style.Light
-		wm_top_neon.BackgroundColor3 = style.Accent
-		wm_bottom_neon.BackgroundColor3 = style.Accent
-		wm_emblem.TextColor3 = style.Accent
-		wm_emblem_glow.TextColor3 = style.Accent
-		for wave_index, wave in ipairs(wm_wave_dots) do
-			local color = wave_index % 2 == 0 and style.Accent or style.Light
-			for _, point in ipairs(wave) do
-				point.BackgroundColor3 = color
-			end
-		end
+		local style = WM_STYLES[style_name] or WM_STYLES.Purple
+		wm_accent.BackgroundColor3 = style.Accent
+		wm_brand_gradient.Color = ColorSequence.new(style.Light, style.Primary)
 	end
 	wm_apply_style(wm_style)
 
-	-- Neon motion: side pulse + runner sweeps
-	for _, neon in ipairs({ wm_left_neon, wm_right_neon }) do
-		tween_service:Create(
-			neon,
-			TweenInfo.new(2.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-			{ BackgroundTransparency = 0.42 }
-		):Play()
-	end
-	tween_service:Create(
-		wm_top_runner,
-		TweenInfo.new(3.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, false),
-		{ Position = UDim2.fromOffset(164, 0) }
-	):Play()
-	tween_service:Create(
-		wm_bottom_runner,
-		TweenInfo.new(4.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, false),
-		{ Position = UDim2.fromOffset(-32, 25) }
-	):Play()
-
-	-- Drag
 	do
 		local dragging, drag_input, drag_start, start_position
 		connect(window.connections, wm_panel.InputBegan, function(input)
@@ -3463,7 +3306,6 @@ function Library:CreateWindow(options)
 			if not dragging then return end
 			if input ~= drag_input and input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
 			local delta = input.Position - drag_start
-			-- keep scale components: root is corner-anchored (Position uses scale 1 on X)
 			wm_root.Position = UDim2.new(
 				start_position.X.Scale, start_position.X.Offset + delta.X,
 				start_position.Y.Scale, start_position.Y.Offset + delta.Y
@@ -3477,50 +3319,26 @@ function Library:CreateWindow(options)
 		end)
 	end
 
-	-- FPS / ping / wave animation driver
-	local wm_frames, wm_elapsed, wm_ping_elapsed, wm_wave_elapsed = 0, 0, 1, 0
+	local wm_frames, wm_elapsed, wm_ping_elapsed = 0, 0, 1
 	local wm_smoothed_fps = 60
-
 	insert(window._renderstep_hooks, function(dt)
 		if not wm_root.Visible then return end
-
 		wm_frames = wm_frames + 1
 		wm_elapsed = wm_elapsed + dt
 		wm_ping_elapsed = wm_ping_elapsed + dt
-		wm_wave_elapsed = wm_wave_elapsed + dt
-
-		if wm_wave_elapsed >= 1 / 30 then
-			local now = os.clock()
-			for wave_index, wave in ipairs(wm_wave_dots) do
-				local center = 5 + wave_index * 5
-				local amplitude = 1.8 + wave_index * 0.5
-				local frequency = 0.24 + wave_index * 0.025
-				local speed = 0.45 + wave_index * 0.11
-				for point_index, point in ipairs(wave) do
-					local x = (point_index - 1) * 3
-					local y = center
-						+ math.sin((point_index - 1) * frequency + now * speed) * amplitude
-						+ math.sin((point_index - 1) * 0.09 - now * 0.28) * 0.65
-					point.Position = UDim2.fromOffset(x, clamp(floor(y + 0.5), 1, 24))
-				end
-			end
-			wm_wave_elapsed = 0
-		end
-
 		if wm_elapsed >= 0.4 then
 			local measured = wm_frames / wm_elapsed
 			wm_smoothed_fps = wm_smoothed_fps + (measured - wm_smoothed_fps) * 0.35
-			wm_fps_metric.Text = string.format('<b>%d</b> <font size="7" color="#B7C0CB">fps</font>', floor(wm_smoothed_fps + 0.5))
+			wm_fps_metric.Text = string.format('%d <font color="#9A9A9A">fps</font>', floor(wm_smoothed_fps + 0.5))
 			wm_frames = 0
 			wm_elapsed = 0
 		end
-
 		if wm_ping_elapsed >= 1 then
 			local ping
 			pcall(function()
 				ping = round(stats_service.Network.ServerStatsItem["Data Ping"]:GetValue())
 			end)
-			wm_ping_metric.Text = string.format('<b>%s</b> <font size="7" color="#B7C0CB">ms</font>', ping and tostring(ping) or "--")
+			wm_ping_metric.Text = string.format('%s <font color="#9A9A9A">ms</font>', ping and tostring(ping) or "--")
 			wm_ping_elapsed = 0
 		end
 	end)
@@ -3540,23 +3358,20 @@ function Library:CreateWindow(options)
 
 	window._active_binds = {}
 
-	-- Dark + pink palette per reference mock
-	local KBL_PANEL = rgb(31, 28, 34)
-	local KBL_ACCENT = rgb(226, 73, 168)
-	local KBL_TEXT = rgb(245, 243, 247)
-	local KBL_W = 150
-	local KBL_HEADER_H = 24
+	local KBL_PANEL = self.theme.bg
+	local KBL_ACCENT = self.theme.accent
+	local KBL_TEXT = self.theme.text
+	local KBL_W = 180
+	local KBL_HEADER_H = 26
 	local KBL_ROW_H = 20
 	local KBL_ROW_PAD = 3
 
-	local kbl_master = false -- settings toggle state
-	local kbl_shown = false  -- currently faded in
+	local kbl_master = false
+	local kbl_shown = false
 
-	-- Holder owns position/size; glow and panel are its children in the SAME
-	-- coordinate space, so the glow can never drift from the panel
 	local kbl_holder = create("Frame", {
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -12, 0, 52),
+		Position = UDim2.new(1, -18, 0, 58),
 		Size = UDim2.fromOffset(KBL_W, KBL_HEADER_H),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -3564,111 +3379,48 @@ function Library:CreateWindow(options)
 		ZIndex = 2,
 	}, kbl_gui)
 
-	-- Soft outer glow: pinned around the holder with scale sizing
-	local KBL_GLOW_PAD = 22
-	local KBL_GLOW_MIN_T = 0.6 -- transparency at full visibility
-	local kbl_glow = create("ImageLabel", {
-		Position = UDim2.fromOffset(-KBL_GLOW_PAD, -KBL_GLOW_PAD),
-		Size = UDim2.new(1, KBL_GLOW_PAD * 2, 1, KBL_GLOW_PAD * 2),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Image = _icons.shadow,
-		ImageColor3 = KBL_ACCENT,
-		ImageTransparency = 1,
-		ScaleType = Enum.ScaleType.Slice,
-		SliceCenter = Rect.new(49, 49, 450, 450),
-		ZIndex = 1,
-	}, kbl_holder)
-
-	-- CanvasGroup so the whole panel fades as one via GroupTransparency.
-	-- Background is mostly transparent: the frost comes from the glass part below.
 	local kbl_frame = create("CanvasGroup", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = KBL_PANEL,
-		BackgroundTransparency = 0.45,
 		GroupTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 		ZIndex = 2,
 	}, kbl_holder)
-	round_ui(kbl_frame, 6)
-	-- UIStroke ignores CanvasGroup.GroupTransparency (rendered separately), so
-	-- the rim is faded by hand in the renderstep hook alongside the glass alpha
-	local KBL_RIM_T = 0.82
-	local kbl_rim = stroke(kbl_frame, rgb(255, 255, 255), 1, 1) -- thin light edge, iOS glass rim
+	round_ui(kbl_frame, 5)
+	local kbl_rim = stroke(kbl_frame, self.theme.line, 1, 1)
 
-	-- ===== Frosted-glass look (texture imitation) =====
-	-- The real acrylic trick (Glass part + DepthOfFieldEffect) is off the
-	-- table: ANY DoF in Lighting makes every Glass surface in the scene
-	-- refract a blurred frame — the user's Glass chams went blurry whenever
-	-- the panel was visible. Frost is now faked with a soft noise texture
-	-- inside the panel; nothing is added to Lighting or the 3D scene, so no
-	-- interaction with chams/materials, and it looks the same on low graphics.
-	local kbl_frost = create("ImageLabel", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Image = "rbxassetid://8992230677", -- soft noise/grain
-		ImageColor3 = rgb(255, 255, 255),
-		ImageTransparency = 0.94,
-		ScaleType = Enum.ScaleType.Tile,
-		TileSize = UDim2.fromOffset(128, 128),
-		ZIndex = 3,
-	}, kbl_frame)
-	-- subtle top-light sheen, like light catching frosted glass
-	local kbl_sheen = create("Frame", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = rgb(255, 255, 255),
-		BackgroundTransparency = 0.93,
-		BorderSizePixel = 0,
-		ZIndex = 3,
-	}, kbl_frame)
-	round_ui(kbl_sheen, 6)
-	create("UIGradient", {
-		Rotation = 90,
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0),
-			NumberSequenceKeypoint.new(0.35, 0.75),
-			NumberSequenceKeypoint.new(1, 1),
-		}),
-	}, kbl_sheen)
-
-	-- Fade state (drives glow + rim, mirrors GroupTransparency fade)
-	local kbl_glass_alpha = 0 -- 0 hidden, 1 fully shown
-
-	insert(window._renderstep_hooks, function(dt)
-		-- Track fade: approach 1 when shown, 0 when hiding (matches 0.25s tween pace)
-		local target = (kbl_holder.Visible and kbl_shown) and 1 or 0
-		local step = dt / 0.25
-		if kbl_glass_alpha < target then
-			kbl_glass_alpha = math.min(1, kbl_glass_alpha + step)
-		elseif kbl_glass_alpha > target then
-			kbl_glass_alpha = math.max(0, kbl_glass_alpha - step)
-		end
-
-		-- Glow is parented to the holder, so only its fade needs driving;
-		-- same for the rim stroke (UIStroke ignores GroupTransparency)
-		kbl_glow.ImageTransparency = 1 - (1 - KBL_GLOW_MIN_T) * kbl_glass_alpha
-		kbl_rim.Transparency = 1 - (1 - KBL_RIM_T) * kbl_glass_alpha
-	end)
-
-	local kbl_title = create("TextLabel", {
-		Position = UDim2.fromOffset(0, 0),
+	create("Frame", {
 		Size = UDim2.new(1, 0, 0, KBL_HEADER_H),
+		BackgroundColor3 = self.theme.bar,
+		BorderSizePixel = 0,
+		ZIndex = 3,
+	}, kbl_frame)
+	create("Frame", {
+		Position = UDim2.fromOffset(0, 5),
+		Size = UDim2.fromOffset(2, KBL_HEADER_H - 10),
+		BackgroundColor3 = KBL_ACCENT,
+		BorderSizePixel = 0,
+		ZIndex = 4,
+	}, kbl_frame)
+
+	create("TextLabel", {
+		Position = UDim2.fromOffset(12, 0),
+		Size = UDim2.new(1, -20, 0, KBL_HEADER_H),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Font = Enum.Font.GothamBold,
 		Text = "KEYBINDS",
 		TextSize = 11,
-		TextColor3 = KBL_TEXT,
-		TextXAlignment = Enum.TextXAlignment.Center,
+		TextColor3 = self.theme.text_soft,
+		TextXAlignment = Enum.TextXAlignment.Left,
 		ZIndex = 4,
 	}, kbl_frame)
 
-	local kbl_underline = create("Frame", {
-		Position = UDim2.new(0, 6, 0, KBL_HEADER_H),
-		Size = UDim2.new(1, -12, 0, 1),
-		BackgroundColor3 = KBL_ACCENT,
+	create("Frame", {
+		Position = UDim2.fromOffset(0, KBL_HEADER_H),
+		Size = UDim2.new(1, 0, 0, 1),
+		BackgroundColor3 = self.theme.line,
 		BorderSizePixel = 0,
 		ZIndex = 4,
 	}, kbl_frame)
@@ -3717,8 +3469,10 @@ function Library:CreateWindow(options)
 		if shown then
 			kbl_holder.Visible = true
 			tween(kbl_frame, 0.25, { GroupTransparency = 0 })
+			tween(kbl_rim, 0.25, { Transparency = 0 })
 		else
 			local fade = tween_object(kbl_frame, 0.25, { GroupTransparency = 1 })
+			tween(kbl_rim, 0.25, { Transparency = 1 })
 			if fade then
 				connect(window.connections, fade.Completed, function()
 					if not kbl_shown then kbl_holder.Visible = false end
@@ -3786,7 +3540,7 @@ function Library:CreateWindow(options)
 			Position = UDim2.new(1, -2, 0.5, 0),
 			Size = UDim2.fromOffset(0, KBL_ROW_H - 4),
 			AutomaticSize = Enum.AutomaticSize.X,
-			BackgroundColor3 = KBL_ACCENT,
+			BackgroundColor3 = KBL_ACCENT:Lerp(KBL_PANEL, 0.82),
 			BorderSizePixel = 0,
 			ZIndex = 5,
 		}, row)
@@ -3799,7 +3553,7 @@ function Library:CreateWindow(options)
 			Font = Enum.Font.GothamMedium,
 			Text = badge_text,
 			TextSize = 10,
-			TextColor3 = rgb(255, 255, 255),
+			TextColor3 = KBL_ACCENT,
 			ZIndex = 6,
 		}, badge)
 		create("UIPadding", {
@@ -3872,7 +3626,7 @@ function Library:CreateWindow(options)
 
 		local total_height = KBL_HEADER_H + 5 + (count * (KBL_ROW_H + KBL_ROW_PAD)) + 3
 		kbl_body.Size = UDim2.new(1, -20, 0, count * (KBL_ROW_H + KBL_ROW_PAD))
-		-- Resize the holder; kbl_frame and the glow follow via scale sizing
+		-- Resize the holder; the panel follows its size
 		if was_shown then
 			tween(kbl_holder, 0.2, { Size = UDim2.fromOffset(KBL_W, total_height) })
 		else
@@ -4179,7 +3933,11 @@ function Window:SetVisible(state)
 		self.close_aux_panels()
 	end
 	if not state and self.current_popup then
-		self.current_popup:SetPopupVisible(false)
+		local popup = self.current_popup
+		popup:SetPopupVisible(false)
+		if popup.section and popup.section._is_toggle_settings then
+			popup.section:SetPopupVisible(false)
+		end
 	end
 	self.root.Visible = state
 end
@@ -4230,7 +3988,11 @@ function Window:SelectTab(tab)
 	end
 
 	if self.current_popup and self.current_popup.section and self.current_popup.section.tab ~= tab then
-		self.current_popup:SetPopupVisible(false)
+		local popup = self.current_popup
+		popup:SetPopupVisible(false)
+		if popup.section._is_toggle_settings then
+			popup.section:SetPopupVisible(false)
+		end
 	end
 
 	for _, current in ipairs(self.tabs) do
@@ -4241,8 +4003,8 @@ function Window:SelectTab(tab)
 		tween(current.stroke, 0.12, { Transparency = active and 0.3 or 1 })
 		if current.icon then
 			tween(current.icon, 0.12, {
-				ImageColor3 = active and self.library.theme.accent or self.library.theme.text_soft,
-				ImageTransparency = active and 0 or 0.3,
+				ImageColor3 = active and self.library.theme.accent or self.library.theme.text,
+				ImageTransparency = active and 0 or 0.2,
 			})
 		elseif current.dot then
 			tween(current.dot, 0.12, { BackgroundColor3 = active and self.library.theme.accent or self.library.theme.text_soft })
@@ -4381,12 +4143,12 @@ function Window:AddTab(options)
 		tab.icon = create("ImageLabel", {
 			AnchorPoint = Vector2.new(0, 0.5),
 			Position = UDim2.new(0, 7, 0.5, 0),
-			Size = UDim2.fromOffset(14, 14),
+			Size = UDim2.fromOffset(13, 13),
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
 			Image = tab_icon_id,
-			ImageColor3 = self.library.theme.text_soft,
-			ImageTransparency = 0.3,
+			ImageColor3 = self.library.theme.text,
+			ImageTransparency = 0.2,
 			ScaleType = Enum.ScaleType.Fit,
 			ZIndex = 6,
 		}, tab.button)
@@ -4425,7 +4187,7 @@ function Window:AddTab(options)
 			tween(tab.label, 0.12, { TextColor3 = self.library.theme.text })
 			tween(tab.stroke, 0.12, { Transparency = 0.65 })
 			if tab.icon then
-				tween(tab.icon, 0.12, { ImageColor3 = self.library.theme.text, ImageTransparency = 0.1 })
+				tween(tab.icon, 0.12, { ImageColor3 = self.library.theme.text, ImageTransparency = 0.05 })
 			end
 		end
 	end)
@@ -4436,7 +4198,7 @@ function Window:AddTab(options)
 			tween(tab.label, 0.12, { TextColor3 = self.library.theme.text_soft })
 			tween(tab.stroke, 0.12, { Transparency = 1 })
 			if tab.icon then
-				tween(tab.icon, 0.12, { ImageColor3 = self.library.theme.text_soft, ImageTransparency = 0.3 })
+				tween(tab.icon, 0.12, { ImageColor3 = self.library.theme.text, ImageTransparency = 0.2 })
 			end
 		end
 	end)
@@ -4462,23 +4224,32 @@ function Tab:AddContextSelector(options)
 	local column = self.columns.Sidebar
 	assert(column, "Context selector requires a four-column tab")
 	local selector = { Selected = nil, Buttons = {}, Window = self.window }
+	local titleHeight = options.Title == false and 0 or 14
 	local holder = create("Frame", {
 		BackgroundTransparency = 1,
-		Size = UDim2.new(1, 0, 0, #(options.Items or {}) * 26 + 14),
+		Size = UDim2.new(1, 0, 0, #(options.Items or {}) * 26 + titleHeight),
 	}, column)
-	create("TextLabel", {
-		BackgroundTransparency = 1,
-		Size = UDim2.new(1, 0, 0, 14),
-		Font = Enum.Font.GothamSemibold,
-		Text = options.Title or "VISUALS",
-		TextSize = 10,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextColor3 = self.window.library.theme.text_soft,
-	}, holder)
+	if titleHeight > 0 then
+		create("TextLabel", {
+			BackgroundTransparency = 1,
+			Size = UDim2.new(1, 0, 0, titleHeight),
+			Font = Enum.Font.GothamSemibold,
+			Text = options.Title or "VISUALS",
+			TextSize = 10,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = self.window.library.theme.text_soft,
+		}, holder)
+	end
 
 	function selector:Select(name)
 		if not self.Buttons[name] or self.Selected == name then return end
-		if self.Window.current_popup then self.Window.current_popup:SetPopupVisible(false) end
+		if self.Window.current_popup then
+			local popup = self.Window.current_popup
+			popup:SetPopupVisible(false)
+			if popup.section and popup.section._is_toggle_settings then
+				popup.section:SetPopupVisible(false)
+			end
+		end
 		self.Selected = name
 		for item, row in pairs(self.Buttons) do
 			local selected = item == name
@@ -4492,7 +4263,7 @@ function Tab:AddContextSelector(options)
 	selector.Theme = self.window.library.theme
 	for index, name in ipairs(options.Items or {}) do
 		local button = create("TextButton", {
-			Position = UDim2.fromOffset(0, 14 + (index - 1) * 26),
+			Position = UDim2.fromOffset(0, titleHeight + (index - 1) * 26),
 			Size = UDim2.new(1, 0, 0, 24),
 			BackgroundColor3 = selector.Theme.panel_soft,
 			BackgroundTransparency = 1,
@@ -4634,6 +4405,27 @@ function Tab:AddEspPreview(options)
 		ScaleType = Enum.ScaleType.Slice,
 		SliceCenter = Rect.new(21, 21, 79, 79),
 	}, box)
+	local styleLines, styleGlowLines = {}, {}
+	for index = 1, 12 do
+		insert(styleLines, create("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BorderSizePixel = 0,
+			Visible = false,
+			ZIndex = 6,
+		}, box))
+		if index <= 8 then
+			insert(styleGlowLines, create("ImageLabel", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundTransparency = 1,
+				Image = "rbxassetid://18245826428",
+				ImageTransparency = 0.8,
+				ScaleType = Enum.ScaleType.Slice,
+				SliceCenter = Rect.new(21, 21, 79, 79),
+				Visible = false,
+				ZIndex = 5,
+			}, box))
+		end
+	end
 	local healthBack = create("Frame", {
 		Position = UDim2.fromOffset(-7, -2),
 		Size = UDim2.new(0, 3, 1, 4),
@@ -4648,6 +4440,15 @@ function Tab:AddEspPreview(options)
 		BorderSizePixel = 0,
 	}, healthBack)
 	local healthGradient = create("UIGradient", { Rotation = 90 }, health)
+	local ammoBack = create("Frame", {
+		BackgroundColor3 = rgb(22, 22, 22),
+		BorderColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 1,
+	}, box)
+	local ammoBar = create("Frame", {
+		BorderSizePixel = 0,
+	}, ammoBack)
+	local ammoGradient = create("UIGradient", { Rotation = 90 }, ammoBar)
 
 	local function label(text, position, color)
 		return create("TextLabel", {
@@ -4664,13 +4465,60 @@ function Tab:AddEspPreview(options)
 		}, box)
 	end
 	local name = label("Player", UDim2.new(0.5, 0, 0, -16), Color3.new(1, 1, 1))
-	local weapon = label("Weapon", UDim2.new(0.5, 0, 1, 4), Color3.new(1, 1, 1))
-	local distance = label("125 st", UDim2.new(0.5, 0, 1, 18), Color3.new(1, 1, 1))
+	local weapon = label("AK-47", UDim2.new(0.5, 0, 1, 4), Color3.new(1, 1, 1))
+	local itemIcon = create("ImageLabel", {
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 1, 18),
+		Size = UDim2.fromOffset(32, 14),
+		BackgroundTransparency = 1,
+		ScaleType = Enum.ScaleType.Fit,
+	}, box)
+	local ammoText = label("18 / 90", UDim2.new(0.5, 0, 1, 32), Color3.new(1, 1, 1))
+	local infoBomb = create("ImageLabel", {
+		Size = UDim2.fromOffset(12, 12),
+		BackgroundTransparency = 1,
+		Image = "rbxassetid://109858795365969",
+		ImageColor3 = Color3.fromRGB(255, 180, 60),
+		ScaleType = Enum.ScaleType.Fit,
+		Visible = false,
+		ZIndex = 9,
+	}, box)
+	local infoKit = create("ImageLabel", {
+		Size = UDim2.fromOffset(12, 12),
+		BackgroundTransparency = 1,
+		Image = "rbxassetid://138772806705472",
+		ImageColor3 = Color3.fromRGB(95, 175, 255),
+		ScaleType = Enum.ScaleType.Fit,
+		Visible = false,
+		ZIndex = 9,
+	}, box)
+	local infoScoped = label("SCOPED", UDim2.new(1, 5, 0, 2), Color3.fromRGB(110, 180, 255))
+	infoScoped.AnchorPoint = Vector2.new(0, 0)
+	infoScoped.Size = UDim2.fromOffset(72, 13)
+	infoScoped.TextXAlignment = Enum.TextXAlignment.Left
+	infoScoped.TextSize = 10
+	infoScoped.ZIndex = 9
+	infoScoped.Visible = false
+	local infoMoney = label("$1250", UDim2.new(1, 5, 0, 16), Color3.fromRGB(160, 255, 95))
+	infoMoney.AnchorPoint = Vector2.new(0, 0)
+	infoMoney.Size = UDim2.fromOffset(72, 13)
+	infoMoney.TextXAlignment = Enum.TextXAlignment.Left
+	infoMoney.TextSize = 10
+	infoMoney.ZIndex = 9
+	infoMoney.Visible = false
 	local skeleton = create("Frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		ZIndex = 7,
 	}, box)
+	local headOutline = create("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundTransparency = 1,
+		Visible = false,
+		ZIndex = 9,
+	}, skeleton)
+	create("UICorner", { CornerRadius = UDim.new(1, 0) }, headOutline)
+	local headStroke = create("UIStroke", { Thickness = 2 }, headOutline)
 	local joints = {}
 	for _ = 1, 14 do
 		local line = create("Frame", {
@@ -4685,21 +4533,26 @@ function Tab:AddEspPreview(options)
 	local preview = setmetatable({
 		Section = section, Display = display,
 		Box = box, Outline = outline, BoxStroke = boxStroke,
+		StyleLines = styleLines, StyleGlowLines = styleGlowLines, Corners = {},
 		Fill = fill, FillGradient = fillGradient, Glow = glow,
 		HealthBack = healthBack, Health = health, HealthGradient = healthGradient,
-		Name = name, Weapon = weapon, Distance = distance,
-		Skeleton = joints, SkeletonLayer = skeleton,
+		AmmoBack = ammoBack, AmmoBar = ammoBar, AmmoGradient = ammoGradient,
+		Name = name, Weapon = weapon, ItemIcon = itemIcon, AmmoText = ammoText,
+		InfoBomb = infoBomb, InfoKit = infoKit, InfoScoped = infoScoped, InfoMoney = infoMoney,
+		Skeleton = joints, SkeletonLayer = skeleton, HeadOutline = headOutline, HeadStroke = headStroke,
 		HealthValue = 0, HealthDirection = 1,
+		AmmoValue = 18, AmmoDirection = -1,
 	}, EspPreview)
 	connect(self.window.connections, box:GetPropertyChangedSignal("AbsoluteSize"), function()
 		preview:UpdateSkeleton()
+		preview:UpdateBoxStyle()
 	end)
 	connect(self.window.connections, run.RenderStepped, function(dt)
 		local config = preview.Config
 		if self.window.selected ~= self or not self.window.root.Visible
 			or not section.holder.Visible or not config then return end
-		if config.BoxFill and config.BoxFillSpin then
-			fillGradient.Rotation = (fillGradient.Rotation + dt * 90) % 360
+		if fill.Visible and config.BoxFillSpin then
+			fillGradient.Rotation = (os.clock() * 180) % 360
 		end
 		local nextHealth = preview.HealthValue + dt * 40 * preview.HealthDirection
 		if nextHealth >= 100 then
@@ -4711,14 +4564,47 @@ function Tab:AddEspPreview(options)
 		end
 		preview.HealthValue = nextHealth
 		local ratio = nextHealth / 100
-		health.Size = UDim2.fromScale(1, ratio)
-		health.Position = UDim2.fromScale(0, 1 - ratio)
+		if config.HealthBarPosition == "Top" or config.HealthBarPosition == "Bottom" then
+			health.Size = UDim2.fromScale(ratio, 1)
+			health.Position = UDim2.fromScale(0, 0)
+		else
+			health.Size = UDim2.fromScale(1, ratio)
+			health.Position = UDim2.fromScale(0, 1 - ratio)
+		end
 		if config.HealthBarType == "Dynamic" then
 			health.BackgroundColor3 = config.HealthLowColor:Lerp(config.HealthFullColor, ratio)
 		elseif config.HealthBarType == "Gradient" then
 			healthGradient.Color = ColorSequence.new(
 				config.HealthLowColor:Lerp(config.HealthFullColor, ratio),
 				config.HealthLowColor
+			)
+		end
+		local nextAmmo = preview.AmmoValue + dt * 8 * preview.AmmoDirection
+		if nextAmmo >= 30 then
+			nextAmmo = 30
+			preview.AmmoDirection = -1
+		elseif nextAmmo <= 0 then
+			nextAmmo = 0
+			preview.AmmoDirection = 1
+		end
+		preview.AmmoValue = nextAmmo
+		local ammoRatio = nextAmmo / 30
+		ammoText.Text = tostring(floor(nextAmmo + 0.5)) .. " / 90"
+		if config.AmmoPosition == "Top" or config.AmmoPosition == "Bottom" then
+			ammoBar.Size = UDim2.fromScale(ammoRatio, 1)
+			ammoBar.Position = UDim2.fromScale(0, 0)
+		else
+			ammoBar.Size = UDim2.fromScale(1, ammoRatio)
+			ammoBar.Position = UDim2.fromScale(0, 1 - ammoRatio)
+		end
+		if config.AmmoBarType == "Dynamic" then
+			local color = config.AmmoLowColor:Lerp(config.AmmoFullColor, ammoRatio)
+			ammoBar.BackgroundColor3 = color
+			ammoText.TextColor3 = color
+		elseif config.AmmoBarType == "Gradient" then
+			ammoGradient.Color = ColorSequence.new(
+				config.AmmoLowColor:Lerp(config.AmmoFullColor, ammoRatio),
+				config.AmmoLowColor
 			)
 		end
 	end)
@@ -4729,8 +4615,16 @@ end
 function EspPreview:UpdateSkeleton()
 	local config = self.Config
 	local size = self.Box.AbsoluteSize
+	local showHead = config and config.Skeleton and config.SkeletonHead
+	self.HeadOutline.Visible = showHead and size.X > 0 and size.Y > 0 or false
+	if self.HeadOutline.Visible then
+		local diameter = size.Y * 0.13
+		self.HeadOutline.Position = UDim2.fromOffset(size.X * 0.5, size.Y * 0.13)
+		self.HeadOutline.Size = UDim2.fromOffset(diameter, diameter)
+		self.HeadStroke.Color = config.HeadColor
+	end
 	local points = {
-		Head = Vector2.new(0.5, 0.13), Torso = Vector2.new(0.5, 0.34), Pelvis = Vector2.new(0.5, 0.55),
+		Head = Vector2.new(0.5, 0.214), Torso = Vector2.new(0.5, 0.34), Pelvis = Vector2.new(0.5, 0.55),
 		LeftShoulder = Vector2.new(0.31, 0.34), LeftElbow = Vector2.new(0.22, 0.49), LeftHand = Vector2.new(0.17, 0.63),
 		RightShoulder = Vector2.new(0.69, 0.34), RightElbow = Vector2.new(0.78, 0.49), RightHand = Vector2.new(0.83, 0.63),
 		LeftHip = Vector2.new(0.42, 0.56), LeftKnee = Vector2.new(0.39, 0.73), LeftFoot = Vector2.new(0.36, 0.92),
@@ -4745,7 +4639,8 @@ function EspPreview:UpdateSkeleton()
 	}
 	for index, line in ipairs(self.Skeleton) do
 		local pair = joints[index]
-		local visible = config and config.Skeleton and size.X > 0 and size.Y > 0
+		local visible = config and config.Skeleton and config.SkeletonJoints
+			and size.X > 0 and size.Y > 0
 		line.Visible = visible and true or false
 		if visible then
 			local firstPoint, secondPoint = points[pair[1]], points[pair[2]]
@@ -4760,28 +4655,138 @@ function EspPreview:UpdateSkeleton()
 	end
 end
 
+function EspPreview:UpdateBoxStyle()
+	local config = self.Config
+	local size = self.Box.AbsoluteSize
+	local segments = {}
+	if config and config.Box and config.BoxStyle == "Corner" then
+		local w, h = math.round(size.X), math.round(size.Y)
+		local cw = math.min(math.max(6, math.round(w * 0.23)), math.floor(w * 0.5))
+		local ch = math.min(math.max(8, math.round(h * 0.18)), math.floor(h * 0.5))
+		local thickness = math.min(config.BoxThickness or 1, cw, ch)
+		for index = 1, 4 do
+			local corner = self.Corners[index]
+			if not corner then
+				local holder = create("Frame", {
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					ZIndex = 6,
+				}, self.Box)
+				corner = {
+					Root = holder,
+					Horizontal = create("Frame", { BorderSizePixel = 0, ZIndex = 6 }, holder),
+					Vertical = create("Frame", { BorderSizePixel = 0, ZIndex = 6 }, holder),
+				}
+				self.Corners[index] = corner
+			end
+			local right = index % 2 == 0
+			local bottom = index > 2
+			corner.Root.Position = UDim2.fromOffset(right and w - cw or 0, bottom and h - ch or 0)
+			corner.Root.Size = UDim2.fromOffset(cw, ch)
+			corner.Root.Visible = size.X > 0 and size.Y > 0
+			corner.Horizontal.Position = UDim2.fromOffset(0, bottom and ch - thickness or 0)
+			corner.Horizontal.Size = UDim2.fromOffset(cw, thickness)
+			corner.Vertical.Position = UDim2.fromOffset(right and cw - thickness or 0, 0)
+			corner.Vertical.Size = UDim2.fromOffset(thickness, ch)
+			corner.Horizontal.BackgroundColor3 = config.BoxColor
+			corner.Vertical.BackgroundColor3 = config.BoxColor
+			for part = 1, 2 do
+				local glowLine = self.StyleGlowLines[(index - 1) * 2 + part]
+				local horizontal = part == 1
+				glowLine.Position = UDim2.fromOffset(
+					(right and w - cw or 0) + (horizontal and cw * 0.5 or (right and cw - thickness * 0.5 or thickness * 0.5)),
+					(bottom and h - ch or 0) + (horizontal and (bottom and ch - thickness * 0.5 or thickness * 0.5) or ch * 0.5))
+				glowLine.Size = UDim2.fromOffset((horizontal and cw or thickness) + 47,
+					(horizontal and thickness or ch) + 47)
+				glowLine.Rotation = 0
+				glowLine.ImageColor3 = config.BoxColor
+				glowLine.Visible = corner.Root.Visible and config.BoxGlow
+			end
+		end
+	elseif config and config.Box and config.BoxStyle == "3D" then
+		local w, h = size.X, size.Y
+		local dx, dy = w * 0.16, -h * 0.07
+		segments = {
+			{ 0, 0, w, 0 }, { w, 0, w, h }, { w, h, 0, h }, { 0, h, 0, 0 },
+			{ dx, dy, w + dx, dy }, { w + dx, dy, w + dx, h + dy },
+			{ w + dx, h + dy, dx, h + dy }, { dx, h + dy, dx, dy },
+			{ 0, 0, dx, dy }, { w, 0, w + dx, dy },
+			{ w, h, w + dx, h + dy }, { 0, h, dx, h + dy },
+		}
+	end
+	if not (config and config.Box and config.BoxStyle == "Corner") then
+		for _, corner in ipairs(self.Corners) do
+			corner.Root.Visible = false
+		end
+	end
+	for index, line in ipairs(self.StyleLines) do
+		local segment = segments[index]
+		line.Visible = segment ~= nil and size.X > 0 and size.Y > 0
+		local glowLine = self.StyleGlowLines[index]
+		if glowLine and not (config and config.Box and config.BoxStyle == "Corner") then
+			glowLine.Visible = false
+		end
+		if segment then
+			local first = Vector2.new(segment[1], segment[2])
+			local second = Vector2.new(segment[3], segment[4])
+			local delta = second - first
+			line.Position = UDim2.fromOffset((first.X + second.X) * 0.5, (first.Y + second.Y) * 0.5)
+			line.Size = UDim2.fromOffset(delta.Magnitude, config.BoxThickness or 1)
+			line.Rotation = math.deg(math.atan2(delta.Y, delta.X))
+			line.BackgroundColor3 = config.BoxColor
+		end
+	end
+end
+
 function EspPreview:SetConfig(config)
 	self.Config = config
 	self.Box.Visible = config ~= nil
 	if not config then
 		self:UpdateSkeleton()
+		self:UpdateBoxStyle()
 		return
 	end
-	self.Outline.Transparency = config.Box and 0 or 1
+	local bottomRows = (config.Weapon and 1 or 0) + (config.ItemIcon and 1 or 0)
+		+ (config.Ammo and config.AmmoNumbers and 1 or 0)
+	self.Box.Size = UDim2.new(0.56, 0, 0.76, -math.max(0, bottomRows - 1) * 16)
+	local classicBox = config.BoxStyle == "Classic"
+	self.Outline.Transparency = config.Box and classicBox and 0 or 1
 	self.Outline.Thickness = (config.BoxThickness or 1) + 2
-	self.BoxStroke.Transparency = config.Box and 0 or 1
+	self.BoxStroke.Transparency = config.Box and classicBox and 0 or 1
 	self.BoxStroke.Thickness = config.BoxThickness or 1
 	self.BoxStroke.Color = config.BoxColor
-	self.Fill.Visible = config.Box and config.BoxFill
+	self.Fill.Visible = config.Box and config.BoxFill and config.BoxStyle ~= "3D"
+	if config.BoxStyle == "Corner" then
+		self.Fill.Position = UDim2.fromOffset(0, 0)
+		self.Fill.Size = UDim2.fromScale(1, 1)
+	else
+		self.Fill.Position = UDim2.fromOffset(1, 1)
+		self.Fill.Size = UDim2.new(1, -2, 1, -2)
+	end
 	self.FillGradient.Color = ColorSequence.new(config.FillColor1, config.FillColor2)
 	self.FillGradient.Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, config.FillTransparency1),
 		NumberSequenceKeypoint.new(1, config.FillTransparency2),
 	})
-	if not config.BoxFillSpin then self.FillGradient.Rotation = -90 end
-	self.Glow.Visible = config.Box and config.BoxGlow
+	if not (self.Fill.Visible and config.BoxFillSpin) then self.FillGradient.Rotation = -90 end
+	self.Glow.Visible = config.Box and config.BoxGlow and classicBox
 	self.Glow.ImageColor3 = config.BoxColor
 	self.HealthBack.Visible = config.HealthBar
+	local horizontalHealth = config.HealthBarPosition == "Top" or config.HealthBarPosition == "Bottom"
+	if config.HealthBarPosition == "Right" then
+		self.HealthBack.Position = UDim2.new(1, 5, 0, -2)
+		self.HealthBack.Size = UDim2.new(0, 3, 1, 4)
+	elseif config.HealthBarPosition == "Top" then
+		self.HealthBack.Position = UDim2.fromOffset(-2, -7)
+		self.HealthBack.Size = UDim2.new(1, 4, 0, 3)
+	elseif config.HealthBarPosition == "Bottom" then
+		self.HealthBack.Position = UDim2.new(0, -2, 1, 5)
+		self.HealthBack.Size = UDim2.new(1, 4, 0, 3)
+	else
+		self.HealthBack.Position = UDim2.fromOffset(-7, -2)
+		self.HealthBack.Size = UDim2.new(0, 3, 1, 4)
+	end
+	self.HealthGradient.Rotation = horizontalHealth and 0 or 90
 	self.HealthGradient.Enabled = config.HealthBarType == "Gradient"
 	self.HealthGradient.Color = ColorSequence.new(
 		config.HealthLowColor:Lerp(config.HealthFullColor, self.HealthValue / 100),
@@ -4791,13 +4796,90 @@ function EspPreview:SetConfig(config)
 		and config.HealthLowColor:Lerp(config.HealthFullColor, self.HealthValue / 100)
 		or config.HealthBarType == "Gradient" and Color3.new(1, 1, 1)
 		or config.HealthFullColor
+	self.AmmoBack.Visible = config.Ammo == true and config.AmmoBar == true
+	local ammoOffset = config.HealthBar and config.AmmoPosition == config.HealthBarPosition and 13 or 7
+	if config.AmmoPosition == "Right" then
+		self.AmmoBack.Position = UDim2.new(1, ammoOffset - 2, 0, -2)
+		self.AmmoBack.Size = UDim2.new(0, 3, 1, 4)
+	elseif config.AmmoPosition == "Top" then
+		self.AmmoBack.Position = UDim2.fromOffset(-2, -ammoOffset)
+		self.AmmoBack.Size = UDim2.new(1, 4, 0, 3)
+	elseif config.AmmoPosition == "Bottom" then
+		self.AmmoBack.Position = UDim2.new(0, -2, 1, ammoOffset - 2)
+		self.AmmoBack.Size = UDim2.new(1, 4, 0, 3)
+	else
+		self.AmmoBack.Position = UDim2.fromOffset(-ammoOffset, -2)
+		self.AmmoBack.Size = UDim2.new(0, 3, 1, 4)
+	end
+	self.AmmoGradient.Rotation = (config.AmmoPosition == "Top" or config.AmmoPosition == "Bottom") and 0 or 90
+	self.AmmoGradient.Enabled = config.AmmoBarType == "Gradient"
+	local ammoRatio = self.AmmoValue / 30
+	local ammoFullColor = config.AmmoFullColor or Color3.new(1, 1, 1)
+	local ammoLowColor = config.AmmoLowColor or ammoFullColor
+	self.AmmoGradient.Color = ColorSequence.new(
+		ammoLowColor:Lerp(ammoFullColor, ammoRatio),
+		ammoLowColor
+	)
+	self.AmmoBar.BackgroundColor3 = config.AmmoBarType == "Dynamic"
+		and ammoLowColor:Lerp(ammoFullColor, ammoRatio)
+		or config.AmmoBarType == "Gradient" and Color3.new(1, 1, 1)
+		or ammoFullColor
 	self.Name.Visible = config.Name
+	local topBars = (config.HealthBar and config.HealthBarPosition == "Top" and 1 or 0)
+		+ (config.Ammo and config.AmmoBar and config.AmmoPosition == "Top" and 1 or 0)
+	self.Name.Position = UDim2.new(0.5, 0, 0, -16 - topBars * 7)
 	self.Name.TextColor3 = config.NameColor
 	self.Weapon.Visible = config.Weapon
 	self.Weapon.TextColor3 = config.WeaponColor
-	self.Distance.Visible = config.Distance
-	self.Distance.TextColor3 = config.DistanceColor
+	self.ItemIcon.Image = config.PreviewItemIcon or ""
+	self.ItemIcon.ImageColor3 = config.ItemIconColor or Color3.new(1, 1, 1)
+	self.ItemIcon.Visible = config.ItemIcon == true and self.ItemIcon.Image ~= ""
+	self.AmmoText.Visible = config.Ammo == true and config.AmmoNumbers == true
+	self.AmmoText.TextColor3 = config.AmmoBarType == "Dynamic"
+		and ammoLowColor:Lerp(ammoFullColor, ammoRatio) or ammoFullColor
+	local bottomBars = (config.HealthBar and config.HealthBarPosition == "Bottom" and 1 or 0)
+		+ (config.Ammo and config.AmmoBar and config.AmmoPosition == "Bottom" and 1 or 0)
+	local labelY = 4 + bottomBars * 8
+	if config.Weapon then
+		self.Weapon.Position = UDim2.new(0.5, 0, 1, labelY)
+		labelY += 14
+	end
+	if self.ItemIcon.Visible then
+		self.ItemIcon.Position = UDim2.new(0.5, 0, 1, labelY)
+		labelY += 16
+	end
+	if self.AmmoText.Visible then
+		self.AmmoText.Position = UDim2.new(0.5, 0, 1, labelY)
+	end
+	local info = config.Info
+	self.InfoBomb.Visible = info.Bomb
+	self.InfoKit.Visible = info["Defuse kit"]
+	self.InfoScoped.Visible = info.Scoped
+	self.InfoMoney.Visible = info.Money
+	local leftInfoY = 2
+	local leftInfoX = -17
+		- (config.HealthBar and config.HealthBarPosition == "Left" and 7 or 0)
+		- (config.Ammo and config.AmmoBar and config.AmmoPosition == "Left" and 7 or 0)
+	if self.InfoBomb.Visible then
+		self.InfoBomb.Position = UDim2.fromOffset(leftInfoX, leftInfoY)
+		leftInfoY += 14
+	end
+	if self.InfoKit.Visible then
+		self.InfoKit.Position = UDim2.fromOffset(leftInfoX, leftInfoY)
+	end
+	local rightInfoY = 2
+	local rightInfoX = 5
+		+ (config.HealthBar and config.HealthBarPosition == "Right" and 7 or 0)
+		+ (config.Ammo and config.AmmoBar and config.AmmoPosition == "Right" and 7 or 0)
+	if self.InfoScoped.Visible then
+		self.InfoScoped.Position = UDim2.new(1, rightInfoX, 0, rightInfoY)
+		rightInfoY += 14
+	end
+	if self.InfoMoney.Visible then
+		self.InfoMoney.Position = UDim2.new(1, rightInfoX, 0, rightInfoY)
+	end
 	self:UpdateSkeleton()
+	self:UpdateBoxStyle()
 end
 
 function Section:_row(height)
@@ -5157,6 +5239,7 @@ end
 
 function Section:AddDropdown(options)
 	options = normalize(options, "Name")
+	local settings_parent = self._is_toggle_settings and self or nil
 	local flag = options.Flag or options.Name or ("d_" .. tostring(random(1, 9999999)))
 	local values = normalize_dropdown_values(options.Values or options.Options or options.List or options.Items)
 	local placeholder = tostring(options.Placeholder or "None")
@@ -5275,7 +5358,7 @@ function Section:AddDropdown(options)
 			Size = UDim2.fromOffset(6000, 6000),
 			BackgroundTransparency = 1,
 			Text = "",
-			ZIndex = 49,
+			ZIndex = settings_parent and 61 or 49,
 			Active = true,
 		}, self.window.popup_container)
 		connect(self.window.connections, popup_overlay.MouseButton1Click, function()
@@ -5288,7 +5371,7 @@ function Section:AddDropdown(options)
 			Active = true,
 			Position = UDim2.fromOffset(0, 0),
 			Size = UDim2.fromOffset(175, 0),
-			ZIndex = 50,
+			ZIndex = settings_parent and 62 or 50,
 		}, self.window.popup_container)
 		round_ui(popup, 2)
 		popup_stroke = stroke(popup, dropdown.library.theme.line, 1, 1)
@@ -5424,12 +5507,17 @@ function Section:AddDropdown(options)
 	function dropdown:SetPopupVisible(value)
 		self.popup_open = value == true
 		if self.popup_open then
-			if self.window.current_popup and self.window.current_popup ~= self then
+			if self.window.current_popup and self.window.current_popup ~= self
+				and self.window.current_popup ~= settings_parent then
 				self.window.current_popup:SetPopupVisible(false)
 			end
+			if settings_parent then settings_parent.child_popup = self end
 			self.window.current_popup = self
 		elseif self.window.current_popup == self then
-			self.window.current_popup = nil
+			self.window.current_popup = settings_parent and settings_parent.popup_open and settings_parent or nil
+		end
+		if not self.popup_open and settings_parent and settings_parent.child_popup == self then
+			settings_parent.child_popup = nil
 		end
 
 		refresh_button_state()
@@ -7108,7 +7196,7 @@ function Section:AddToggle(options)
 			AnchorPoint = Vector2.new(1, 0.5),
 			Size = UDim2.fromOffset(14, 14),
 			BackgroundTransparency = 1,
-			Image = _lucide["cog"],
+			Image = _icons.fatality_option,
 			ImageColor3 = toggle.library.theme.text_soft,
 			AutoButtonColor = false,
 			ZIndex = 4,
