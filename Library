@@ -3987,6 +3987,11 @@ function Window:SelectTab(tab)
 		return
 	end
 
+	if tab.parent_tab then
+		tab.parent_tab:SelectSubTab(tab)
+		tab = tab.parent_tab
+	end
+
 	if self.current_popup and self.current_popup.section and self.current_popup.section.tab ~= tab then
 		local popup = self.current_popup
 		popup:SetPopupVisible(false)
@@ -4014,26 +4019,13 @@ function Window:SelectTab(tab)
 	self.selected = tab
 end
 
-function Window:AddTab(options)
-	options = normalize(options, "Name")
-	local name = options.Name or ("TAB " .. tostring(#self.tabs + 1))
+local function build_tab_columns(window, page, options)
 	local column_count = (options.Columns == 3 or options.Columns == 4) and options.Columns or 2
 	local column_gap = tonumber(options.ColumnGap or options.ColumnSpacing or 13) or 13
 	local column_padding_left = tonumber(options.ColumnPaddingLeft or options.ColumnPadding or 14) or 14
 	local column_padding_right = tonumber(options.ColumnPaddingRight or options.ColumnPadding or 14) or 14
 	local requested_widths = type(options.ColumnWidths) == "table" and options.ColumnWidths or nil
-
-	local tab = setmetatable({
-		window = self,
-		name = name,
-		column_count = column_count,
-	}, Tab)
-
-	tab.page = create("Frame", {
-		BackgroundTransparency = 1,
-		Size = UDim2.fromScale(1, 1),
-		Visible = false,
-	}, self.body)
+	local columns
 
 	local function create_column(position, size)
 		local column = create("ScrollingFrame", {
@@ -4042,14 +4034,14 @@ function Window:AddTab(options)
 			Position = position,
 			Size = size,
 			ScrollBarThickness = 0,
-			ScrollBarImageColor3 = self.library.theme.text_soft or rgb(100, 100, 100),
+			ScrollBarImageColor3 = window.library.theme.text_soft or rgb(100, 100, 100),
 			ScrollBarImageTransparency = 0.4,
 			CanvasSize = UDim2.fromOffset(0, 0),
 			ScrollingDirection = Enum.ScrollingDirection.Y,
 			TopImage = "rbxasset://textures/ui/Scroll/scroll-middle.png",
 			BottomImage = "rbxasset://textures/ui/Scroll/scroll-middle.png",
 			MidImage = "rbxasset://textures/ui/Scroll/scroll-middle.png",
-		}, tab.page)
+		}, page)
 
 		local col_layout = create("UIListLayout", {
 			SortOrder = Enum.SortOrder.LayoutOrder,
@@ -4076,7 +4068,7 @@ function Window:AddTab(options)
 		local left_x = sidebar_x + sidebar_width + column_gap
 		local middle_x = left_x + left_width + column_gap
 		local right_x = middle_x + middle_width + column_gap
-		tab.columns = {
+		columns = {
 			Sidebar = create_column(UDim2.fromOffset(sidebar_x, 0), UDim2.new(0, sidebar_width, 1, 0)),
 			Left = create_column(UDim2.fromOffset(left_x, 0), UDim2.new(0, left_width, 1, 0)),
 			Middle = create_column(UDim2.fromOffset(middle_x, 0), UDim2.new(0, middle_width, 1, 0)),
@@ -4104,7 +4096,7 @@ function Window:AddTab(options)
 		local left_x = column_padding_left
 		local middle_x = left_x + left_width + column_gap
 		local right_x = middle_x + middle_width + column_gap
-		tab.columns = {
+		columns = {
 			Left = create_column(UDim2.fromOffset(left_x, 0), UDim2.new(0, left_width, 1, 0)),
 			Middle = create_column(UDim2.fromOffset(middle_x, 0), UDim2.new(0, middle_width, 1, 0)),
 			Right = create_column(
@@ -4118,11 +4110,30 @@ function Window:AddTab(options)
 			left_width = 238
 		end
 		local right_x = column_padding_left + left_width + column_gap
-		tab.columns = {
+		columns = {
 			Left = create_column(UDim2.fromOffset(column_padding_left, 0), UDim2.new(0, left_width, 1, 0)),
 			Right = create_column(UDim2.fromOffset(right_x, 0), UDim2.new(1, -(right_x + column_padding_right), 1, 0)),
 		}
 	end
+
+	return columns, column_count
+end
+
+function Window:AddTab(options)
+	options = normalize(options, "Name")
+	local name = options.Name or ("TAB " .. tostring(#self.tabs + 1))
+	local tab = setmetatable({
+		window = self,
+		name = name,
+	}, Tab)
+
+	tab.page = create("Frame", {
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		Visible = false,
+	}, self.body)
+
+	tab.columns, tab.column_count = build_tab_columns(self, tab.page, options)
 
 	local tab_icon_id = resolve_icon(options.Icon)
 	local has_icon = tab_icon_id ~= nil
@@ -4216,7 +4227,111 @@ function Window:AddTab(options)
 end
 
 function Tab:Select()
+	if self.parent_tab then
+		self.parent_tab:SelectSubTab(self)
+		self.window:SelectTab(self.parent_tab)
+		return
+	end
 	self.window:SelectTab(self)
+end
+
+-- Sub-tabs: a row of text tabs at the top of a tab; each sub-tab owns its own columns and sections
+function Tab:AddSubTab(options)
+	options = normalize(options, "Name")
+	local theme = self.window.library.theme
+	if not self.subtabs then
+		self.subtabs = {}
+		for _, column in pairs(self.columns) do
+			column.Visible = false
+		end
+		self.subtab_bar = create("Frame", {
+			BackgroundTransparency = 1,
+			Position = UDim2.fromOffset(tonumber(options.BarPadding or 14) or 14, 0),
+			Size = UDim2.new(1, -28, 0, 20),
+		}, self.page)
+		create("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, 12),
+		}, self.subtab_bar)
+	end
+
+	local name = options.Name or ("Tab " .. tostring(#self.subtabs + 1))
+	local subtab = setmetatable({
+		window = self.window,
+		parent_tab = self,
+		name = self.name .. " > " .. name,
+	}, Tab)
+
+	subtab.page = create("Frame", {
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(0, 28),
+		Size = UDim2.new(1, 0, 1, -28),
+		Visible = false,
+	}, self.page)
+	subtab.columns, subtab.column_count = build_tab_columns(self.window, subtab.page, options)
+
+	subtab.button = create("TextButton", {
+		AutomaticSize = Enum.AutomaticSize.X,
+		Size = UDim2.fromOffset(0, 20),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Font = Enum.Font.GothamSemibold,
+		Text = name,
+		TextSize = 12,
+		TextColor3 = theme.text_soft,
+		LayoutOrder = #self.subtabs + 1,
+	}, self.subtab_bar)
+	subtab.underline = create("Frame", {
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 0, 1, 0),
+		Size = UDim2.new(1, 0, 0, 2),
+		BackgroundColor3 = theme.accent,
+		BorderSizePixel = 0,
+		Visible = false,
+	}, subtab.button)
+
+	connect(self.window.connections, subtab.button.MouseEnter, function()
+		if self.selected_subtab ~= subtab then
+			tween(subtab.button, 0.12, { TextColor3 = theme.text })
+		end
+	end)
+	connect(self.window.connections, subtab.button.MouseLeave, function()
+		if self.selected_subtab ~= subtab then
+			tween(subtab.button, 0.12, { TextColor3 = theme.text_soft })
+		end
+	end)
+	connect(self.window.connections, subtab.button.MouseButton1Click, function()
+		self:SelectSubTab(subtab)
+	end)
+
+	insert(self.subtabs, subtab)
+	if not self.selected_subtab then
+		self:SelectSubTab(subtab)
+	end
+	return subtab
+end
+
+function Tab:SelectSubTab(subtab)
+	if not self.subtabs or self.selected_subtab == subtab then
+		return
+	end
+	local popup = self.window.current_popup
+	if popup then
+		popup:SetPopupVisible(false)
+		if popup.section and popup.section._is_toggle_settings then
+			popup.section:SetPopupVisible(false)
+		end
+	end
+	local theme = self.window.library.theme
+	for _, current in ipairs(self.subtabs) do
+		local active = current == subtab
+		current.page.Visible = active
+		current.underline.Visible = active
+		tween(current.button, 0.12, { TextColor3 = active and theme.text or theme.text_soft })
+	end
+	self.selected_subtab = subtab
 end
 
 function Tab:AddContextSelector(options)
