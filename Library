@@ -269,62 +269,61 @@ local get_identity = type(getthreadidentity) == "function" and getthreadidentity
 	or type(get_thread_identity) == "function" and get_thread_identity
 	or nil
 
--- Run fn with identity 8 (plugin-level), restoring the previous identity afterwards.
+-- Run fn with identity 8 (plugin-level), restoring whatever we had before.
+-- No-ops safely on executors without the identity API.
 local function with_gui_identity(fn, ...)
 	if not set_identity then
-		return fn(...)
+		return pcall(fn, ...)
 	end
-	local previous = get_identity and get_identity() or 2
-	set_identity(8)
-	local results = table.pack(fn(...))
-	set_identity(previous)
+	local previous = 2
+	if get_identity then
+		local ok, current = pcall(get_identity)
+		if ok and type(current) == "number" then
+			previous = current
+		end
+	end
+	pcall(set_identity, 8)
+	local results = table.pack(pcall(fn, ...))
+	pcall(set_identity, previous)
 	return table.unpack(results, 1, results.n)
-end
-
-local tween_infos = {}
-local function get_tween_info(speed, style)
-	speed = speed or 0.15
-	style = style or Enum.EasingStyle.Quad
-	local by_style = tween_infos[style]
-	if not by_style then
-		by_style = {}
-		tween_infos[style] = by_style
-	end
-	local info = by_style[speed]
-	if not info then
-		info = TweenInfo.new(speed, style, Enum.EasingDirection.Out)
-		by_style[speed] = info
-	end
-	return info
 end
 
 local function tween(target, speed, props)
 	if not target then
 		return
 	end
-	tween_service:Create(target, get_tween_info(speed), props):Play()
+	-- pcall: a single unreachable instance (dead row, protected GUI, thread
+	-- identity dip) must never abort a whole config apply mid-way
+	local ok = pcall(function()
+		tween_service:Create(target, TweenInfo.new(speed or 0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props):Play()
+	end)
+	if ok then
+		return
+	end
+	-- Fallback: set the properties directly so the UI still ends up correct
+	pcall(function()
+		for property, value in pairs(props) do
+			target[property] = value
+		end
+	end)
 end
 
 local function tween_object(target, speed, props, style)
 	if not target then return nil end
-	local tween_instance = tween_service:Create(target, get_tween_info(speed, style), props)
-	tween_instance:Play()
-	return tween_instance
-end
-
-local function run_hooks(list, ...)
-	for index = 1, #list do
-		list[index](...)
+	local ok, tw = pcall(function()
+		local tween_instance = tween_service:Create(target, TweenInfo.new(speed or 0.15, style or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props)
+		tween_instance:Play()
+		return tween_instance
+	end)
+	if ok then
+		return tw
 	end
-end
-
--- A sub-tab is shown only while its parent tab is selected and it is the parent's selected sub-tab
-local function is_tab_shown(tab)
-	local parent = tab.parent_tab
-	if parent then
-		return parent.window.selected == parent and parent.selected_subtab == tab
-	end
-	return tab.window.selected == tab
+	pcall(function()
+		for property, value in pairs(props) do
+			target[property] = value
+		end
+	end)
+	return nil
 end
 
 local function connect(bucket, signal, callback)
@@ -902,7 +901,10 @@ local function decode_cfg(text)
 end
 
 local function format_config_timestamp()
-	return os.date("%d.%m.%Y %H:%M")
+	local ok, value = pcall(function()
+		return os.date("%d.%m.%Y %H:%M")
+	end)
+	return ok and value or "unknown"
 end
 
 local function viewport_size()
@@ -947,48 +949,6 @@ local function refresh_search_entry(entry)
 		tostring(entry.kind or ""),
 	}, " "))
 	return entry
-end
-
--- Popup shell: a full-screen click catcher (overlay) under the popup panel, both in the window's popup container
-local function create_popup_shell(window, options)
-	local zindex = options.ZIndex or 50
-	local overlay = create("TextButton", {
-		Visible = options.Visible == true,
-		Position = UDim2.fromOffset(-2000, -2000),
-		Size = UDim2.fromOffset(6000, 6000),
-		BackgroundTransparency = 1,
-		Text = "",
-		ZIndex = zindex - 1,
-		Active = true,
-	}, window.popup_container)
-	local panel = create("Frame", {
-		Visible = options.Visible == true,
-		Position = UDim2.fromOffset(0, 0),
-		Size = options.Size,
-		BackgroundColor3 = options.Background or window.library.theme.panel_soft,
-		BorderSizePixel = 0,
-		ClipsDescendants = options.Clip ~= false,
-		Active = options.Clip ~= false,
-		ZIndex = zindex,
-	}, window.popup_container)
-	round_ui(panel, options.Radius or 4)
-	local panel_stroke = stroke(panel, window.library.theme.line, options.StrokeTransparency or 1, 1)
-	return overlay, panel, panel_stroke
-end
-
--- Only one popup is open per window; a child popup may keep its parent open
-local function claim_popup(window, popup, keep_open)
-	local current = window.current_popup
-	if current and current ~= popup and current ~= keep_open then
-		current:SetPopupVisible(false)
-	end
-	window.current_popup = popup
-end
-
-local function release_popup(window, popup, fallback)
-	if window.current_popup == popup then
-		window.current_popup = fallback
-	end
 end
 
 local function create_aux_popup(parent, size, zindex, background_color, line_color)
@@ -1397,13 +1357,6 @@ local function disconnect(bucket, connection)
 	end
 end
 
-local function clear_connections(bucket)
-	for _, connection in ipairs(bucket) do
-		connection:Disconnect()
-	end
-	table.clear(bucket)
-end
-
 local function key_name(token)
 	if not token or token == "none" then
 		return "none"
@@ -1482,7 +1435,6 @@ function Library:CreateWindow(options)
 		_input_began_hooks = {},
 		_heartbeat_hooks = {},
 		_renderstep_hooks = {},
-		_rainbow_toggles = {},
 		current_popup = nil,
 		keybind = options.Keybind or Enum.KeyCode.Insert,
 		config_enabled = options.ConfigMenu ~= false,
@@ -1620,13 +1572,8 @@ function Library:CreateWindow(options)
 
 	local title_wave_step = 1 / (TITLE_WAVE_KEYPOINTS - 1)
 
-	local title_wave_next = 0
 	insert(window._renderstep_hooks, function()
 		local t = os.clock()
-		if not window.root.Visible or t < title_wave_next then
-			return
-		end
-		title_wave_next = t + 1 / 30
 		local crest = (t * 0.14) % 1 -- rightward, ~7s per sweep
 		local keypoints = {}
 		for i = 0, TITLE_WAVE_KEYPOINTS - 1 do
@@ -2668,20 +2615,27 @@ function Library:CreateWindow(options)
 			return false, "config has no settings"
 		end
 
-		-- Identity-raised: config loads can run on a thread that can't touch gethui()-parented instances
-		with_gui_identity(function()
-			for _, entry in ipairs(window.entries) do
-				if is_config_entry(entry) then
-					local next_value = entry.flag and settings[entry.flag] or nil
-					if next_value == nil then
-						next_value = get_config_entry_value(entry, true)
-					end
-					if next_value ~= nil then
-						apply_config_entry_value(entry, next_value, fire_callback ~= false)
+		for _, entry in ipairs(window.entries) do
+			if is_config_entry(entry) then
+				local next_value = entry.flag and settings[entry.flag] or nil
+				if next_value == nil then
+					next_value = get_config_entry_value(entry, true)
+				end
+				if next_value ~= nil then
+					-- Isolated + identity-raised: one control that throws (protected
+					-- GUI, stale row, bad stored value) must not abort the rest of
+					-- the config — every later toggle would silently keep its default.
+					local applied, apply_error = with_gui_identity(
+						apply_config_entry_value, entry, next_value, fire_callback ~= false
+					)
+					if not applied then
+						warn(("[NeverPaste] config entry %q failed: %s"):format(
+							tostring(entry.flag or entry.name or "?"), tostring(apply_error)
+						))
 					end
 				end
 			end
-		end)
+		end
 
 		-- Restore Settings tab state (watermark is always on — not restorable)
 		-- Same identity guard: these mutate Settings-tab GUI objects too.
@@ -2782,7 +2736,14 @@ function Library:CreateWindow(options)
 			end
 		end
 
-		return http_service:JSONEncode(payload)
+		local ok, encoded = pcall(function()
+			return http_service:JSONEncode(payload)
+		end)
+		if not ok then
+			return nil, "failed to encode config"
+		end
+
+		return encoded
 	end
 
 	function window:ImportConfig(config_text)
@@ -3193,44 +3154,32 @@ function Library:CreateWindow(options)
 		if not typing and input.KeyCode == window.keybind then
 			window:SetVisible(not window.root.Visible)
 		end
-		run_hooks(window._input_began_hooks, input, typing)
+		for _, hook in ipairs(window._input_began_hooks) do
+			hook(input, typing)
+		end
 	end)
 
-	-- Only one control is dragged at a time; it registers itself here instead of listening to every mouse move
-	function window:_begin_drag(on_move, on_end)
-		self._drag_move, self._drag_end = on_move, on_end
-	end
-
 	connect(window.connections, uis.InputChanged, function(input)
-		run_hooks(window._input_changed_hooks, input)
-		if window._drag_move and input.UserInputType == Enum.UserInputType.MouseMovement then
-			window._drag_move(input)
+		for _, hook in ipairs(window._input_changed_hooks) do
+			hook(input)
 		end
 	end)
 
 	connect(window.connections, uis.InputEnded, function(input)
-		run_hooks(window._input_ended_hooks, input)
-		if window._drag_end and input.UserInputType == Enum.UserInputType.MouseButton1 then
-			local finish = window._drag_end
-			window._drag_move, window._drag_end = nil, nil
-			finish(input)
+		for _, hook in ipairs(window._input_ended_hooks) do
+			hook(input)
 		end
 	end)
 
 	connect(window.connections, run.Heartbeat, function(dt)
-		run_hooks(window._heartbeat_hooks, dt)
-		if window._popup_geometry then
-			window._popup_geometry()
+		for _, hook in ipairs(window._heartbeat_hooks) do
+			hook(dt)
 		end
 	end)
 
 	connect(window.connections, run.RenderStepped, function(dt)
-		run_hooks(window._renderstep_hooks, dt)
-		if next(window._rainbow_toggles) then
-			local rainbow_color = hsv((os.clock() * 0.15) % 1, 1, 1)
-			for rainbow_toggle in pairs(window._rainbow_toggles) do
-				rainbow_toggle:SetColor(rainbow_color, rainbow_toggle.bind.alpha, true)
-			end
+		for _, hook in ipairs(window._renderstep_hooks) do
+			hook(dt)
 		end
 	end)
 
@@ -3385,10 +3334,10 @@ function Library:CreateWindow(options)
 			wm_elapsed = 0
 		end
 		if wm_ping_elapsed >= 1 then
-			local network = stats_service:FindFirstChild("Network")
-			local server_stats = network and network:FindFirstChild("ServerStatsItem")
-			local ping_item = server_stats and server_stats:FindFirstChild("Data Ping")
-			local ping = ping_item and round(ping_item:GetValue())
+			local ping
+			pcall(function()
+				ping = round(stats_service.Network.ServerStatsItem["Data Ping"]:GetValue())
+			end)
 			wm_ping_metric.Text = string.format('%s <font color="#9A9A9A">ms</font>', ping and tostring(ping) or "--")
 			wm_ping_elapsed = 0
 		end
@@ -4715,7 +4664,7 @@ function Tab:AddEspPreview(options)
 	end)
 	connect(self.window.connections, run.RenderStepped, function(dt)
 		local config = preview.Config
-		if not is_tab_shown(self) or not self.window.root.Visible
+		if self.window.selected ~= self or not self.window.root.Visible
 			or not section.holder.Visible or not config then return end
 		if fill.Visible and config.BoxFillSpin then
 			fillGradient.Rotation = (os.clock() * 180) % 360
@@ -5291,8 +5240,8 @@ function Section:AddSlider(options)
 
 	local function display_text(value)
 		if type(options.Format) == "function" then
-			local formatted = options.Format(value)
-			if formatted ~= nil then
+			local ok, formatted = pcall(options.Format, value)
+			if ok and formatted ~= nil then
 				return tostring(formatted)
 			end
 		end
@@ -5362,16 +5311,27 @@ function Section:AddSlider(options)
 		update_from_pointer()
 		tween(label, 0.12, { TextTransparency = 0 })
 		tween(slot, 0.12, { BackgroundColor3 = slider.library.theme.panel })
-		slider.window:_begin_drag(update_from_pointer, function()
-			dragging = false
-			if point_inside(hitbox, picker_input_position()) then
-				tween(label, 0.18, { TextTransparency = 0.05 })
-				tween(slot, 0.18, { BackgroundColor3 = slider.library.theme.panel })
-			else
-				tween(label, 0.18, { TextTransparency = 0.2 })
-				tween(slot, 0.18, { BackgroundColor3 = slider.library.theme.bg })
-			end
-		end)
+	end)
+
+	insert(self.window._input_changed_hooks, function(input)
+		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+			update_from_pointer()
+		end
+	end)
+
+	insert(self.window._input_ended_hooks, function(input)
+		if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+			return
+		end
+
+		dragging = false
+		if point_inside(hitbox, picker_input_position()) then
+			tween(label, 0.18, { TextTransparency = 0.05 })
+			tween(slot, 0.18, { BackgroundColor3 = slider.library.theme.panel })
+		else
+			tween(label, 0.18, { TextTransparency = 0.2 })
+			tween(slot, 0.18, { BackgroundColor3 = slider.library.theme.bg })
+		end
 	end)
 
 	slider._mute_callback = options.FireOnInit == nil and true or not options.FireOnInit
@@ -5508,14 +5468,28 @@ function Section:AddDropdown(options)
 
 	local function create_popup()
 		if popup then return end
-		popup_overlay, popup, popup_stroke = create_popup_shell(dropdown.window, {
-			Visible = true, Size = UDim2.fromOffset(175, 0), Background = dropdown.library.theme.bg,
-			Radius = 2, ZIndex = settings_parent and 62 or 50,
-		})
-		-- The popup is rebuilt on every open, so this connection dies with the overlay instead of piling up
-		popup_overlay.MouseButton1Click:Connect(function()
+		popup_overlay = create("TextButton", {
+			Position = UDim2.fromOffset(-2000, -2000),
+			Size = UDim2.fromOffset(6000, 6000),
+			BackgroundTransparency = 1,
+			Text = "",
+			ZIndex = settings_parent and 61 or 49,
+			Active = true,
+		}, self.window.popup_container)
+		connect(self.window.connections, popup_overlay.MouseButton1Click, function()
 			dropdown:SetPopupVisible(false)
 		end)
+		popup = create("Frame", {
+			BackgroundColor3 = dropdown.library.theme.bg,
+			BorderSizePixel = 0,
+			ClipsDescendants = true,
+			Active = true,
+			Position = UDim2.fromOffset(0, 0),
+			Size = UDim2.fromOffset(175, 0),
+			ZIndex = settings_parent and 62 or 50,
+		}, self.window.popup_container)
+		round_ui(popup, 2)
+		popup_stroke = stroke(popup, dropdown.library.theme.line, 1, 1)
 		popup_list = create("Frame", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
@@ -5645,25 +5619,17 @@ function Section:AddDropdown(options)
 		end
 	end
 
-	-- The open dropdown follows its slot every frame; only one is open at a time, so it registers on the window
-	local function sync_popup_geometry()
-		if popup and popup.Parent and slot.Parent then
-			update_popup_geometry()
-		end
-	end
-
 	function dropdown:SetPopupVisible(value)
 		self.popup_open = value == true
 		if self.popup_open then
-			self.window._popup_geometry = sync_popup_geometry
-		elseif self.window._popup_geometry == sync_popup_geometry then
-			self.window._popup_geometry = nil
-		end
-		if self.popup_open then
-			claim_popup(self.window, self, settings_parent)
+			if self.window.current_popup and self.window.current_popup ~= self
+				and self.window.current_popup ~= settings_parent then
+				self.window.current_popup:SetPopupVisible(false)
+			end
 			if settings_parent then settings_parent.child_popup = self end
-		else
-			release_popup(self.window, self, settings_parent and settings_parent.popup_open and settings_parent or nil)
+			self.window.current_popup = self
+		elseif self.window.current_popup == self then
+			self.window.current_popup = settings_parent and settings_parent.popup_open and settings_parent or nil
 		end
 		if not self.popup_open and settings_parent and settings_parent.child_popup == self then
 			settings_parent.child_popup = nil
@@ -5774,7 +5740,11 @@ function Section:AddDropdown(options)
 
 	dropdown.SetData = dropdown.SetOptions
 
-
+	insert(self.window._heartbeat_hooks, function()
+		if dropdown.popup_open and popup and popup.Parent and slot.Parent then
+			update_popup_geometry()
+		end
+	end)
 
 	connect(self.window.connections, hitbox.MouseEnter, function()
 		tween(label, 0.45, { TextTransparency = 0.05 })
@@ -6005,9 +5975,28 @@ function Section:AddToggle(options)
 		})
 	end
 
-	local popup_overlay, popup, popup_stroke = create_popup_shell(self.window, {
+	local popup_overlay = create("TextButton", {
+		Visible = false,
+		Position = UDim2.fromOffset(-2000, -2000),
+		Size = UDim2.fromOffset(6000, 6000),
+		BackgroundTransparency = 1,
+		Text = "",
+		ZIndex = 49,
+		Active = true,
+	}, self.window.popup_container)
+
+	local popup = create("Frame", {
+		Visible = false,
+		Position = UDim2.fromOffset(0, 0),
 		Size = UDim2.fromOffset(has_color and 178 or 190, 0),
-	})
+		BackgroundColor3 = self.library.theme.panel_soft,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = 50,
+		Active = true,
+	}, self.window.popup_container)
+	round_ui(popup, 4)
+	local popup_stroke = stroke(popup, self.library.theme.line, 1, 1)
 	local popup_padding = padding(popup, 8, 8, 8, 8)
 	local popup_layout = create("UIListLayout", {
 		SortOrder = Enum.SortOrder.LayoutOrder,
@@ -6632,9 +6621,14 @@ function Section:AddToggle(options)
 	function toggle:SetPopupVisible(value)
 		self.popup_open = value == true
 		if self.popup_open then
-			claim_popup(self.window, self)
+			if self.window.current_popup and self.window.current_popup ~= self then
+				self.window.current_popup:SetPopupVisible(false)
+			end
+			self.window.current_popup = self
 		else
-			release_popup(self.window, self)
+			if self.window.current_popup == self then
+				self.window.current_popup = nil
+			end
 			set_mode_dropdown_visible(false)
 			disconnect(self.window.connections, self.binding_connection)
 			self.binding_connection = nil
@@ -6763,7 +6757,6 @@ function Section:AddToggle(options)
 			return
 		end
 		self.rainbow = value == true
-		self.window._rainbow_toggles[self] = self.rainbow or nil
 		local button = self.action_buttons.Rainbow
 		tween(button, 0.12, {
 			BackgroundColor3 = self.rainbow and self.bind.color or self.library.theme.panel_soft,
@@ -6792,7 +6785,6 @@ function Section:AddToggle(options)
 
 		if not preserve_rainbow then
 			self.rainbow = false
-			self.window._rainbow_toggles[self] = nil
 		end
 
 		self.bind.color = color
@@ -6861,11 +6853,6 @@ function Section:AddToggle(options)
 
 			color_dragging = mode
 			set_picker_from_input(mode, input)
-			toggle.window:_begin_drag(function(move_input)
-				set_picker_from_input(mode, move_input)
-			end, function()
-				color_dragging = nil
-			end)
 		end)
 	end
 
@@ -7048,9 +7035,6 @@ function Section:AddToggle(options)
 		connect(self.window.connections, action_buttons.Rainbow.MouseButton1Click, function()
 			toggle:SetRainbow(not toggle.rainbow)
 		end)
-		if toggle.rainbow then
-			self.window._rainbow_toggles[toggle] = true
-		end
 
 		connect(self.window.connections, action_buttons.Copy.MouseButton1Click, function()
 			toggle.library.clipboard_color = {
@@ -7071,11 +7055,33 @@ function Section:AddToggle(options)
 		end)
 	end
 
+	insert(self.window._input_changed_hooks, function(input)
+		if input.UserInputType ~= Enum.UserInputType.MouseMovement then
+			return
+		end
+		if color_dragging == "sv" or color_dragging == "hue" or color_dragging == "alpha" then
+			set_picker_from_input(color_dragging, input)
+		end
+	end)
 
+	insert(self.window._input_ended_hooks, function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			color_dragging = nil
+		end
+	end)
+
+	if toggle.has_color then
+		insert(self.window._renderstep_hooks, function()
+			if toggle.rainbow then
+				local rainbow_color = hsv((os.clock() * 0.15) % 1, 1, 1)
+				toggle:SetColor(rainbow_color, toggle.bind.alpha, true)
+			end
+		end)
+	end
 
 	insert(self.window._input_began_hooks, function(input, typing)
 		local toggle_tab = toggle.section and toggle.section.tab
-		local is_on_active_tab = not toggle_tab or is_tab_shown(toggle_tab)
+		local is_on_active_tab = not toggle_tab or toggle_tab == toggle.window.selected
 
 		if input.UserInputType == Enum.UserInputType.MouseButton2 and is_on_active_tab then
 			local point = picker_input_position()
@@ -7312,9 +7318,26 @@ function Section:AddToggle(options)
 		}, hitbox)
 		refresh_inline_color_layout()
 
-		local overlay, panel = create_popup_shell(toggle.window, {
-			Size = UDim2.fromOffset(popup_width, 0), ZIndex = 60, StrokeTransparency = 0.15,
-		})
+		local overlay = create("TextButton", {
+			Visible = false,
+			Position = UDim2.fromOffset(-2000, -2000),
+			Size = UDim2.fromOffset(6000, 6000),
+			BackgroundTransparency = 1,
+			Text = "",
+			Active = true,
+			ZIndex = 59,
+		}, toggle.window.popup_container)
+		local panel = create("Frame", {
+			Visible = false,
+			Size = UDim2.fromOffset(popup_width, 0),
+			BackgroundColor3 = toggle.library.theme.panel_soft,
+			BorderSizePixel = 0,
+			ClipsDescendants = true,
+			Active = true,
+			ZIndex = 60,
+		}, toggle.window.popup_container)
+		round_ui(panel, 4)
+		stroke(panel, toggle.library.theme.line, 0.15, 1)
 		local panel_padding = padding(panel, 8, 8, 8, 8)
 		local panel_layout = create("UIListLayout", {
 			SortOrder = Enum.SortOrder.LayoutOrder,
@@ -7446,9 +7469,12 @@ function Section:AddToggle(options)
 				self.child_popup:SetPopupVisible(false)
 			end
 			if self.popup_open then
-				claim_popup(self.window, self)
-			else
-				release_popup(self.window, self)
+				if self.window.current_popup and self.window.current_popup ~= self then
+					self.window.current_popup:SetPopupVisible(false)
+				end
+				self.window.current_popup = self
+			elseif self.window.current_popup == self then
+				self.window.current_popup = nil
 			end
 			overlay.Visible = self.popup_open
 			panel.Visible = self.popup_open
@@ -7566,9 +7592,28 @@ function Section:AddColorPicker(options)
 	}
 	local parent_settings = self._is_toggle_settings and self or nil
 
-	local popup_overlay, popup, popup_stroke = create_popup_shell(self.window, {
-		Size = UDim2.fromOffset(178, 0), ZIndex = parent_settings and 80 or 50,
-	})
+	local popup_overlay = create("TextButton", {
+		Visible = false,
+		Position = UDim2.fromOffset(-2000, -2000),
+		Size = UDim2.fromOffset(6000, 6000),
+		BackgroundTransparency = 1,
+		Text = "",
+		ZIndex = parent_settings and 79 or 49,
+		Active = true,
+	}, self.window.popup_container)
+
+	local popup = create("Frame", {
+		Visible = false,
+		Position = UDim2.fromOffset(0, 0),
+		Size = UDim2.fromOffset(178, 0),
+		BackgroundColor3 = self.library.theme.panel_soft,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = parent_settings and 80 or 50,
+		Active = true,
+	}, self.window.popup_container)
+	round_ui(popup, 4)
+	local popup_stroke = stroke(popup, self.library.theme.line, 1, 1)
 	local popup_padding = padding(popup, 8, 8, 8, 8)
 	local popup_layout = create("UIListLayout", {
 		SortOrder = Enum.SortOrder.LayoutOrder,
@@ -7823,10 +7868,15 @@ function Section:AddColorPicker(options)
 			else
 				if parent_settings.child_popup == self then parent_settings.child_popup = nil end
 			end
-		elseif self.popup_open then
-			claim_popup(self.window, self)
 		else
-			release_popup(self.window, self)
+			if self.popup_open then
+				if self.window.current_popup and self.window.current_popup ~= self then
+					self.window.current_popup:SetPopupVisible(false)
+				end
+				self.window.current_popup = self
+			elseif self.window.current_popup == self then
+				self.window.current_popup = nil
+			end
 		end
 		refresh_popup_height()
 	end
@@ -7941,11 +7991,6 @@ function Section:AddColorPicker(options)
 			end
 			color_dragging = mode
 			set_picker_from_input(mode, input)
-			picker.window:_begin_drag(function(move_input)
-				set_picker_from_input(mode, move_input)
-			end, function()
-				color_dragging = nil
-			end)
 		end)
 	end
 
@@ -8015,6 +8060,21 @@ function Section:AddColorPicker(options)
 	begin_picker_drag(sv_picker, "sv")
 	begin_picker_drag(hue_picker, "hue")
 	begin_picker_drag(alpha_row, "alpha")
+
+	insert(self.window._input_changed_hooks, function(input)
+		if input.UserInputType ~= Enum.UserInputType.MouseMovement then
+			return
+		end
+		if color_dragging == "sv" or color_dragging == "hue" or color_dragging == "alpha" then
+			set_picker_from_input(color_dragging, input)
+		end
+	end)
+
+	insert(self.window._input_ended_hooks, function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			color_dragging = nil
+		end
+	end)
 
 	connect(self.window.connections, popup_layout:GetPropertyChangedSignal("AbsoluteContentSize"), refresh_popup_height)
 	connect(self.window.connections, self.window.root:GetPropertyChangedSignal("AbsolutePosition"), function()
@@ -8176,8 +8236,6 @@ function ScopeSidebar:_ensure_scope_values(scope_key)
 end
 
 function ScopeSidebar:_rebuild_sidebar_rows()
-	self.row_connections = self.row_connections or {}
-	clear_connections(self.row_connections)
 	for _, child in ipairs(self.scope_results:GetChildren()) do
 		if child:IsA("GuiObject") then
 			child:Destroy()
@@ -8249,36 +8307,34 @@ function ScopeSidebar:_rebuild_sidebar_rows()
 				AutoButtonColor = false,
 			}, row)
 
-			connect(self.row_connections, delete_btn.MouseEnter, function()
+			connect(self.window.connections, delete_btn.MouseEnter, function()
 				tween(delete_btn, 0.12, { ImageColor3 = self.library.theme.accent, ImageTransparency = 0 })
 			end)
-			connect(self.row_connections, delete_btn.MouseLeave, function()
+			connect(self.window.connections, delete_btn.MouseLeave, function()
 				tween(delete_btn, 0.12, { ImageColor3 = self.library.theme.text_soft, ImageTransparency = 0.5 })
 			end)
-			connect(self.row_connections, delete_btn.MouseButton1Click, function()
+			connect(self.window.connections, delete_btn.MouseButton1Click, function()
 				self:RemoveScope(scope.key)
 			end)
 		end
 
-		connect(self.row_connections, row.MouseEnter, function()
+		connect(self.window.connections, row.MouseEnter, function()
 			if scope.key ~= self.active_scope_key then
 				tween(title, 0.12, { TextColor3 = self.library.theme.text })
 			end
 		end)
-		connect(self.row_connections, row.MouseLeave, function()
+		connect(self.window.connections, row.MouseLeave, function()
 			if scope.key ~= self.active_scope_key then
 				tween(title, 0.12, { TextColor3 = self.library.theme.text_soft })
 			end
 		end)
-		connect(self.row_connections, row.MouseButton1Click, function()
+		connect(self.window.connections, row.MouseButton1Click, function()
 			self:SelectScope(scope.key)
 		end)
 	end
 end
 
 function ScopeSidebar:_refresh_add_popup_results()
-	self.popup_row_connections = self.popup_row_connections or {}
-	clear_connections(self.popup_row_connections)
 	for _, child in ipairs(self.popup_results:GetChildren()) do
 		if child:IsA("GuiObject") then
 			child:Destroy()
@@ -8333,13 +8389,13 @@ function ScopeSidebar:_refresh_add_popup_results()
 				TextColor3 = self.library.theme.text_soft,
 			}, row)
 
-			connect(self.popup_row_connections, row.MouseEnter, function()
+			connect(self.window.connections, row.MouseEnter, function()
 				tween(title, 0.12, { TextColor3 = self.library.theme.text })
 			end)
-			connect(self.popup_row_connections, row.MouseLeave, function()
+			connect(self.window.connections, row.MouseLeave, function()
 				tween(title, 0.12, { TextColor3 = self.library.theme.text_soft })
 			end)
-			connect(self.popup_row_connections, row.MouseButton1Click, function()
+			connect(self.window.connections, row.MouseButton1Click, function()
 				local added = self:AddScope(scope, true)
 				if added then
 					self:SetPopupVisible(false)
@@ -8382,11 +8438,16 @@ function ScopeSidebar:SetPopupVisible(value)
 	self.popup.Visible = self.popup_open
 
 	if self.popup_open then
-		claim_popup(self.window, self)
+		if self.window.current_popup and self.window.current_popup ~= self then
+			self.window.current_popup:SetPopupVisible(false)
+		end
+		self.window.current_popup = self
 		self:_refresh_add_popup_results()
 		self:_refresh_popup_position()
 	else
-		release_popup(self.window, self)
+		if self.window.current_popup == self then
+			self.window.current_popup = nil
+		end
 	end
 end
 
@@ -8879,10 +8940,26 @@ function Tab:AddScopeSidebar(options)
 		TextColor3 = self.window.library.theme.text_soft,
 	}, sidebar.content)
 
-	sidebar.popup_overlay, sidebar.popup = create_popup_shell(self.window, {
+	sidebar.popup_overlay = create("TextButton", {
+		Visible = false,
+		Position = UDim2.fromOffset(-2000, -2000),
+		Size = UDim2.fromOffset(6000, 6000),
+		BackgroundTransparency = 1,
+		Text = "",
+		ZIndex = 49,
+		Active = true,
+	}, self.window.popup_container)
+
+	sidebar.popup = create("Frame", {
+		Visible = false,
+		Position = UDim2.fromOffset(0, 0),
 		Size = UDim2.fromOffset(options.PopupWidth or 160, options.PopupHeight or 170),
-		Background = self.window.library.theme.bg, Radius = 3, StrokeTransparency = 0.05, Clip = false,
-	})
+		BackgroundColor3 = self.window.library.theme.bg,
+		BorderSizePixel = 0,
+		ZIndex = 50,
+	}, self.window.popup_container)
+	round_ui(sidebar.popup, 3)
+	stroke(sidebar.popup, self.window.library.theme.line, 0.05, 1)
 
 	sidebar.popup_mode_buttons = {}
 
